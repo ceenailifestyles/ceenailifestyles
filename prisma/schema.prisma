@@ -1,0 +1,311 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  password  String
+  phone     String?
+  role      Role      @default(CUSTOMER)
+  addresses Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  orders    Order[]
+  wishlists Wishlist[]
+  cart      Cart?
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Category {
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  description  String?    @db.Text
+  image        String?
+  publicId     String?
+  displayOrder Int        @default(0)
+  isActive     Boolean    @default(true)
+  parentId     String?
+  parent       Category?  @relation("SubCategories", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Category[] @relation("SubCategories")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  products    Product[]  @relation("CategoryProducts")
+  subProducts Product[]  @relation("SubCategoryProducts")
+
+  @@index([parentId])
+  @@index([slug])
+  @@index([displayOrder])
+  @@map("categories")
+}
+
+model Product {
+  id               String              @id @default(cuid())
+  name             String
+  slug             String              @unique
+  sku              String?             @unique
+  description      String              @db.Text
+  shortDescription String?             @db.Text
+  categoryId       String
+  category         Category            @relation("CategoryProducts", fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategoryId    String?
+  subcategory      Category?           @relation("SubCategoryProducts", fields: [subcategoryId], references: [id], onDelete: SetNull)
+  sellingPrice     Float
+  originalPrice    Float
+  discount         Int                 @default(0)
+  productType      String              @default("NORMAL")
+  mainImage        String
+  mainImageId      String?
+  sizes            Json?
+  colors           Json?
+  specifications   Json?
+  stock            Int                 @default(0)
+  isFeatured       Boolean             @default(false)
+  isBestSeller     Boolean             @default(false)
+  isNewArrival     Boolean             @default(true)
+  isOffer          Boolean             @default(false)
+  isActive         Boolean             @default(true)
+  rating           Float               @default(5.0)
+  reviewCount      Int                 @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  images           ProductImage[]
+  variants         ProductVariant[]
+  collectionItems  CollectionProduct[]
+  wishlists        Wishlist[]
+
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([slug])
+  @@index([isFeatured])
+  @@index([isNewArrival])
+  @@index([isBestSeller])
+  @@index([isActive])
+  @@index([sellingPrice])
+  @@map("products")
+}
+
+model ProductImage {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url          String
+  publicId     String?
+  colorName    String?
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
+  @@index([colorName])
+  @@map("product_images")
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorName String?
+  colorHex  String?
+  size      String
+  stock     Int      @default(0)
+  sku       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([colorName])
+  @@index([size])
+  @@map("product_variants")
+}
+
+model Color {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  hex       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("colors")
+}
+
+model Size {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([displayOrder])
+  @@map("sizes")
+}
+
+model Collection {
+  id             String              @id @default(cuid())
+  title          String
+  slug           String              @unique
+  description    String?             @db.Text
+  bannerImage    String?
+  bannerPublicId String?
+  isActive       Boolean             @default(true)
+  startDate      DateTime?
+  endDate        DateTime?
+  displayOrder   Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  products       CollectionProduct[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("collections")
+}
+
+model CollectionProduct {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  displayOrder Int        @default(0)
+
+  @@unique([collectionId, productId])
+  @@index([collectionId])
+  @@index([productId])
+  @@map("collection_products")
+}
+
+model Banner {
+  id              String   @id @default(cuid())
+  title           String
+  subtitle        String?
+  desktopImage    String
+  desktopPublicId String?
+  mobileImage     String?
+  mobilePublicId  String?
+  ctaText         String   @default("Shop Now")
+  ctaLink         String   @default("/products")
+  displayOrder    Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([displayOrder])
+  @@index([isActive])
+  @@map("banners")
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  userId          String?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  shippingAddress Json
+  items           Json
+  subtotal        Float
+  shippingFee     Float         @default(0)
+  discount        Float         @default(0)
+  total           Float
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String        @default("COD")
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId String?  @unique
+  items     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("carts")
+}
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlists")
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@map("site_settings")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([token])
+  @@map("password_resets")
+}
+

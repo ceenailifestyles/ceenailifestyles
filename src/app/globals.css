@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --brand-bg: #FFFFFF;
+    --brand-cream: #FAF7F2;
+    --brand-burgundy: #7B1123;
+    --brand-burgundy-hover: #630c1b;
+    --brand-gold: #C59A47;
+    --brand-gold-light: #F7E7CE;
+    --brand-espresso: #2B1A13;
+    --brand-espresso-light: #442C22;
+    --brand-card: #FFFFFF;
+    --brand-border: #EFE8DE;
+    --brand-muted: #7A6F68;
+    --brand-badge-red: #D32F2F;
+    --brand-badge-gold: #D4AF37;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: var(--brand-espresso);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Prevent iOS Safari auto-zoom when focusing inputs on mobile devices */
+  @media screen and (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+.font-serif-brand {
+  font-family: var(--font-serif), Georgia, Cambria, 'Times New Roman', serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #FAF7F2;
+}
+::-webkit-scrollbar-thumb {
+  background: #D8CFBF;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7B1123;
+}
+
+/* Smooth transitions */
+button, a {
+  transition: all 0.15s ease-in-out;
+}
+
+/* Bottom Sheet Slide Up Animation */
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUpSheet 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Right Side Drawer Slide In Animation (Cart & Wishlist) */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-right {
+  animation: slideInFromRight 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Left Side Drawer Slide In Animation (Mobile Menu) */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-left {
+  animation: slideInFromLeft 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Backdrop Fade In Animation */
+@keyframes fadeInBackdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInBackdrop 0.22s ease-out forwards;
+}
+
+/* Modal Pop / Zoom In Animation */
+@keyframes zoomInModal {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-zoom-in {
+  animation: zoomInModal 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Search Bar & Dropdown Slide Down Opening Animation */
+@keyframes slideDownDropdown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-down {
+  animation: slideDownDropdown 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Continuous Marquee Animation */
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 22s linear infinite;
+  will-change: transform;
+}
+
+/* Mega Menu Dropdown Animation */
+@keyframes megaMenuOpen {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-mega-menu {
+  animation: megaMenuOpen 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+
+

@@ -1,0 +1,19 @@
+import React from "react";
+import { getAdminSession } from "@/lib/auth";
+import AdminLayoutShell from "@/components/admin/AdminLayoutShell";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getAdminSession();
+
+  return (
+    <AdminLayoutShell session={session}>
+      {children}
+    </AdminLayoutShell>
+  );
+}
