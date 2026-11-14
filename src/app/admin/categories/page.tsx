@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findCategories } from "@/lib/repositories/category";
 import CategoriesClient from "./CategoriesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCategoriesPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const categories = await findCategories({
     where: { parentId: null },
     orderBy: { displayOrder: "asc" },

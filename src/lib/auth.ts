@@ -4,7 +4,17 @@ import { cookies } from "next/headers";
 import { Role } from "@/lib/types";
 import { findUserById } from "@/lib/repositories/user";
 
-const JWT_SECRET = process.env.AUTH_SECRET || "ceenai-fallback-super-secret-key-32chars";
+function getJwtSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("AUTH_SECRET is missing in production environment variables.");
+    }
+    return "ceenai-dev-secret-key-min-32-chars";
+  }
+  return secret;
+}
+
 const CUSTOMER_COOKIE_NAME = "ceenai_customer_session";
 const ADMIN_COOKIE_NAME = "ceenai_admin_session";
 
@@ -25,12 +35,12 @@ export async function verifyPassword(password: string, hashed: string): Promise<
 }
 
 export function signToken(payload: SessionPayload, expiresIn = "7d"): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, getJwtSecret(), { expiresIn } as jwt.SignOptions);
 }
 
 export function verifyToken(token: string): SessionPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as SessionPayload;
+    return jwt.verify(token, getJwtSecret()) as SessionPayload;
   } catch {
     return null;
   }

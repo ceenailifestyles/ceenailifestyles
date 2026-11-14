@@ -1,4 +1,6 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findCollections } from "@/lib/repositories/collection";
 import { findProducts } from "@/lib/repositories/product";
 import CollectionsClient from "./CollectionsClient";
@@ -6,6 +8,11 @@ import CollectionsClient from "./CollectionsClient";
 export const dynamic = "force-dynamic";
 
 export default async function AdminCollectionsPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const [collections, allProducts] = await Promise.all([
     findCollections({
       orderBy: { displayOrder: "asc" },

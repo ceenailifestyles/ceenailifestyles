@@ -1,4 +1,6 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findUsers } from "@/lib/repositories/user";
 import { Role } from "@/lib/types";
 import { Users, Mail, Phone, Calendar } from "lucide-react";
@@ -6,6 +8,11 @@ import { Users, Mail, Phone, Calendar } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function AdminCustomersPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const customers = await findUsers({
     where: { role: Role.CUSTOMER },
     orderBy: { createdAt: "desc" },

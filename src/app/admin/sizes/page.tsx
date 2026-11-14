@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findSizes } from "@/lib/repositories/size";
 import SizesClient from "./SizesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSizesPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const sizes = await findSizes({
     displayOrder: "asc",
   });

@@ -59,9 +59,7 @@ export function getPool(): Pool {
     decimalNumbers: true,
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalThis.__mysqlPool = pool;
-  }
+  globalThis.__mysqlPool = pool;
 
   return pool;
 }

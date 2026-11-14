@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findColors } from "@/lib/repositories/color";
 import ColorsClient from "./ColorsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminColorsPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const colors = await findColors({
     name: "asc",
   });

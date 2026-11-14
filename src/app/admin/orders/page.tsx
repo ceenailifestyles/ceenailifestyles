@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findOrders } from "@/lib/repositories/order";
 import AdminOrdersClient from "./AdminOrdersClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOrdersPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const orders = await findOrders({
     orderBy: { createdAt: "desc" },
   });

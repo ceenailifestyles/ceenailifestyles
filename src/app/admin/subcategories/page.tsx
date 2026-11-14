@@ -1,10 +1,17 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findCategories } from "@/lib/repositories/category";
 import SubcategoriesClient from "./SubcategoriesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSubcategoriesPage() {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const [subcategories, parentCategories] = await Promise.all([
     findCategories({
       where: { isSubcategory: true },

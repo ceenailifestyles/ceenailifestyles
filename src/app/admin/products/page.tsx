@@ -1,4 +1,6 @@
 import React from "react";
+import { redirect } from "next/navigation";
+import { getAdminSession } from "@/lib/auth";
 import { findProducts } from "@/lib/repositories/product";
 import { findCategories } from "@/lib/repositories/category";
 import { findColors } from "@/lib/repositories/color";
@@ -12,6 +14,11 @@ interface AdminProductsPageProps {
 }
 
 export default async function AdminProductsPage({ searchParams }: AdminProductsPageProps) {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   const { search, categoryId } = await searchParams;
 
   const where: any = {};
