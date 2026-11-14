@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import {
+  findProductById,
+  findFirstProduct,
+  updateProduct,
+  deleteProduct,
+} from "@/lib/repositories/product";
 import { getAdminSession } from "@/lib/auth";
 import { productSchema, getZodErrorMessage } from "@/lib/validations";
 import { deleteFromCloudinary } from "@/lib/cloudinary";
@@ -17,14 +22,11 @@ export async function GET(
     }
 
     const { id } = await params;
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        category: true,
-        subcategory: true,
-        images: { orderBy: { displayOrder: "asc" } },
-        variants: true,
-      },
+    const product = await findProductById(id, {
+      includeCategory: true,
+      includeSubcategory: true,
+      includeImages: true,
+      includeVariants: true,
     });
 
     if (!product) {
@@ -62,11 +64,9 @@ export async function PUT(
     const data = validated.data;
 
     // Check slug collision
-    const existingSlug = await prisma.product.findFirst({
-      where: {
-        slug: data.slug,
-        NOT: { id },
-      },
+    const existingSlug = await findFirstProduct({
+      slug: data.slug,
+      NOT: { id },
     });
 
     if (existingSlug) {
@@ -76,80 +76,38 @@ export async function PUT(
       );
     }
 
+    // Compute total stock
+    let totalStock = data.stock;
+    if (data.variants && data.variants.length > 0) {
+      totalStock = data.variants.reduce((acc, v) => acc + (v.stock || 0), 0);
+    }
+
     // Update product & variants atomically
-    const updated = await prisma.$transaction(async (tx) => {
-      // 1. Re-create gallery images if provided
-      if (data.galleryImages !== undefined) {
-        await tx.productImage.deleteMany({ where: { productId: id } });
-        if (data.galleryImages.length > 0) {
-          await tx.productImage.createMany({
-            data: data.galleryImages.map((img, idx) => ({
-              productId: id,
-              url: img.url,
-              publicId: img.publicId || null,
-              colorName: img.colorName || null,
-              displayOrder: idx,
-            })),
-          });
-        }
-      }
-
-      // 2. Re-create variants if provided
-      if (data.variants !== undefined) {
-        await tx.productVariant.deleteMany({ where: { productId: id } });
-        if (data.variants.length > 0) {
-          await tx.productVariant.createMany({
-            data: data.variants.map((v) => ({
-              productId: id,
-              colorName: v.colorName || null,
-              colorHex: v.colorHex || null,
-              size: v.size,
-              stock: v.stock || 0,
-              sku: v.sku || null,
-            })),
-          });
-        }
-      }
-
-      // 3. Compute total stock
-      let totalStock = data.stock;
-      if (data.variants && data.variants.length > 0) {
-        totalStock = data.variants.reduce((acc, v) => acc + (v.stock || 0), 0);
-      }
-
-      return tx.product.update({
-        where: { id },
-        data: {
-          name: data.name,
-          slug: data.slug,
-          sku: data.sku || null,
-          description: data.description,
-          shortDescription: data.shortDescription || null,
-          categoryId: data.categoryId,
-          subcategoryId: data.subcategoryId || null,
-          productType: data.productType,
-          sellingPrice: data.sellingPrice,
-          originalPrice: data.originalPrice,
-          discount: data.discount,
-          mainImage: data.mainImage,
-          mainImageId: data.mainImageId || null,
-          sizes: data.sizes,
-          colors: data.colors,
-          specifications: data.specifications,
-          stock: totalStock,
-          isFeatured: data.isFeatured,
-          isBestSeller: data.isBestSeller,
-          isNewArrival: data.isNewArrival,
-          isOffer: data.isOffer,
-          isActive: data.isActive,
-        },
-        include: {
-          category: true,
-          subcategory: true,
-          images: { orderBy: { displayOrder: "asc" } },
-          variants: true,
-        },
-      });
+    const updated = await updateProduct(id, {
+      name: data.name,
+      slug: data.slug,
+      sku: data.sku || null,
+      description: data.description,
+      shortDescription: data.shortDescription || null,
+      categoryId: data.categoryId,
+      subcategoryId: data.subcategoryId || null,
+      productType: data.productType,
+      sellingPrice: data.sellingPrice,
+      originalPrice: data.originalPrice,
+      discount: data.discount,
+      mainImage: data.mainImage,
+      mainImageId: data.mainImageId || null,
+      sizes: data.sizes,
+      colors: data.colors,
+      specifications: data.specifications,
+      stock: totalStock,
+      isFeatured: data.isFeatured,
+      isBestSeller: data.isBestSeller,
+      isNewArrival: data.isNewArrival,
+      isOffer: data.isOffer,
+      isActive: data.isActive,
+      images: data.galleryImages,
+      variants: data.variants,
     });
 
     return NextResponse.json({ success: true, product: updated });
@@ -170,9 +128,8 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: { images: true },
+    const product = await findProductById(id, {
+      includeImages: true,
     });
 
     if (!product) {
@@ -183,15 +140,15 @@ export async function DELETE(
     if (product.mainImageId) {
       deleteFromCloudinary(product.mainImageId).catch(console.error);
     }
-    for (const img of product.images) {
-      if (img.publicId) {
-        deleteFromCloudinary(img.publicId).catch(console.error);
+    if (product.images) {
+      for (const img of product.images) {
+        if (img.publicId) {
+          deleteFromCloudinary(img.publicId).catch(console.error);
+        }
       }
     }
 
-    await prisma.product.delete({
-      where: { id },
-    });
+    await deleteProduct(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

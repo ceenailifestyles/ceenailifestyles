@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { findUserById } from "@/lib/repositories/user";
 
 export const dynamic = "force-dynamic";
 
@@ -11,22 +11,23 @@ export async function GET() {
       return NextResponse.json({ admin: null }, { status: 401 });
     }
 
-    const admin = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        phone: true,
-        createdAt: true,
+    const admin = await findUserById(session.userId);
+    if (!admin) {
+      return NextResponse.json({ admin: null }, { status: 401 });
+    }
+
+    return NextResponse.json({
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        phone: admin.phone,
+        createdAt: admin.createdAt,
       },
     });
-
-    return NextResponse.json({ admin });
   } catch (error) {
     console.error("Admin me error:", error);
     return NextResponse.json({ admin: null }, { status: 500 });
   }
 }
-

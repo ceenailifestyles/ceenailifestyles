@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCollections, findCollectionBySlug, createCollection } from "@/lib/repositories/collection";
 import { getAdminSession } from "@/lib/auth";
 import { collectionSchema, getZodErrorMessage } from "@/lib/validations";
 
@@ -12,24 +12,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const collections = await prisma.collection.findMany({
+    const collections = await findCollections({
       orderBy: { displayOrder: "asc" },
-      include: {
-        products: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                mainImage: true,
-                sellingPrice: true,
-                stock: true,
-              },
-            },
-          },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
+      includeProducts: true,
     });
 
     return NextResponse.json({ collections });
@@ -57,9 +42,7 @@ export async function POST(req: Request) {
     }
 
     const data = validated.data;
-    const existing = await prisma.collection.findUnique({
-      where: { slug: data.slug },
-    });
+    const existing = await findCollectionBySlug(data.slug);
 
     if (existing) {
       return NextResponse.json(
@@ -68,25 +51,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const collection = await prisma.collection.create({
-      data: {
-        title: data.title,
-        slug: data.slug,
-        description: data.description || null,
-        bannerImage: data.bannerImage || null,
-        bannerPublicId: data.bannerPublicId || null,
-        isActive: data.isActive,
-        displayOrder: data.displayOrder,
-        products: {
-          create: data.productIds.map((pId, idx) => ({
-            productId: pId,
-            displayOrder: idx,
-          })),
-        },
-      },
-      include: {
-        products: { include: { product: true } },
-      },
+    const collection = await createCollection({
+      title: data.title,
+      slug: data.slug,
+      description: data.description || null,
+      bannerImage: data.bannerImage || null,
+      bannerPublicId: data.bannerPublicId || null,
+      isActive: data.isActive,
+      displayOrder: data.displayOrder,
+      productIds: data.productIds,
     });
 
     return NextResponse.json({ success: true, collection });

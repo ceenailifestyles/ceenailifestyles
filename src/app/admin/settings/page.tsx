@@ -1,14 +1,12 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import SettingsClient from "./SettingsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const settings = await prisma.siteSetting.findMany({
-    where: {
-      key: { in: ["announcement_bar", "footer_settings"] },
-    },
+  const settings = await findSiteSettings({
+    key: { in: ["announcement_bar", "footer_settings"] },
   });
 
   const settingsMap: Record<string, any> = {};

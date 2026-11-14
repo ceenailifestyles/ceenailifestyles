@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail } from "@/lib/repositories/user";
 import { verifyPassword, signToken, CUSTOMER_COOKIE_NAME } from "@/lib/auth";
 import { customerLoginSchema, getZodErrorMessage } from "@/lib/validations";
 
@@ -18,9 +18,7 @@ export async function POST(req: Request) {
     }
 
     const { email, password } = validated.data;
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    const user = await findUserByEmail(email.toLowerCase());
 
     if (!user) {
       return NextResponse.json(
@@ -60,12 +58,15 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
     });
 
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

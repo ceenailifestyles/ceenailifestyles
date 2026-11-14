@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCustomerSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { findUserById } from "@/lib/repositories/user";
 
 export const dynamic = "force-dynamic";
 
@@ -11,23 +11,24 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        addresses: true,
-        createdAt: true,
+    const user = await findUserById(session.userId);
+    if (!user) {
+      return NextResponse.json({ user: null });
+    }
+
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        addresses: user.addresses,
+        createdAt: user.createdAt,
       },
     });
-
-    return NextResponse.json({ user });
   } catch (error) {
     console.error("Me error:", error);
     return NextResponse.json({ user: null });
   }
 }
-

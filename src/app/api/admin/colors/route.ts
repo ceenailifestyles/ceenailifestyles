@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findColors, findColorByName, createColor } from "@/lib/repositories/color";
 import { getAdminSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const colors = await prisma.color.findMany({
-      orderBy: { name: "asc" },
-    });
+    const colors = await findColors({ name: "asc" });
 
     return NextResponse.json({ colors });
   } catch (error) {
@@ -41,9 +39,7 @@ export async function POST(req: Request) {
     }
 
     // Check duplicate
-    const existing = await prisma.color.findUnique({
-      where: { name: name.trim() },
-    });
+    const existing = await findColorByName(name.trim());
 
     if (existing) {
       return NextResponse.json(
@@ -52,11 +48,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const color = await prisma.color.create({
-      data: {
-        name: name.trim(),
-        hex: hex.trim().startsWith("#") ? hex.trim() : `#${hex.trim()}`,
-      },
+    const color = await createColor({
+      name: name.trim(),
+      hex: hex.trim().startsWith("#") ? hex.trim() : `#${hex.trim()}`,
     });
 
     return NextResponse.json({ color }, { status: 201 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findProductById } from "@/lib/repositories/product";
 
 export const dynamic = "force-dynamic";
 
@@ -24,9 +24,8 @@ export async function POST(req: Request) {
     let allValid = true;
 
     for (const item of items) {
-      const dbProduct = await prisma.product.findUnique({
-        where: { id: item.productId },
-        include: { variants: true },
+      const dbProduct = await findProductById(item.productId, {
+        includeVariants: true,
       });
 
       if (!dbProduct || !dbProduct.isActive) {

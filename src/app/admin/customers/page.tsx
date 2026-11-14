@@ -1,17 +1,15 @@
 import React from "react";
-import prisma from "@/lib/prisma";
-import { Role } from "@prisma/client";
+import { findUsers } from "@/lib/repositories/user";
+import { Role } from "@/lib/types";
 import { Users, Mail, Phone, Calendar } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCustomersPage() {
-  const customers = await prisma.user.findMany({
+  const customers = await findUsers({
     where: { role: Role.CUSTOMER },
     orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { orders: true } },
-    },
+    includeOrderCount: true,
   });
 
   return (
@@ -57,7 +55,7 @@ export default async function AdminCustomersPage() {
                     <td className="py-3 px-4 text-[#7A6F68]">{c.phone || "—"}</td>
                     <td className="py-3 px-4">
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FAF7F2] border border-[#E8DFD5] text-[#7B1123]">
-                        {c._count.orders} {c._count.orders === 1 ? "order" : "orders"}
+                        {c._count?.orders || 0} {c._count?.orders === 1 ? "order" : "orders"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-[#7A6F68]">

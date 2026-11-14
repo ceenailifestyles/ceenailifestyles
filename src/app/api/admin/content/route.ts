@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findSiteSettings, upsertSiteSetting } from "@/lib/repositories/siteSetting";
 import { getAdminSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +11,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const settings = await prisma.siteSetting.findMany({
-      where: {
-        key: {
-          in: ["benefits", "about_ceenai", "testimonials", "announcement_bar", "footer_settings"],
-        },
+    const settings = await findSiteSettings({
+      key: {
+        in: ["benefits", "about_ceenai", "testimonials", "announcement_bar", "footer_settings"],
       },
     });
 
@@ -45,11 +43,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "key and value required" }, { status: 400 });
     }
 
-    const updated = await prisma.siteSetting.upsert({
-      where: { key },
-      update: { value },
-      create: { key, value },
-    });
+    const updated = await upsertSiteSetting(key, value);
 
     return NextResponse.json({ success: true, setting: updated });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findProductById } from "@/lib/repositories/product";
 import { getRazorpayClient } from "@/lib/razorpay";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +16,8 @@ export async function POST(req: Request) {
     // Calculate subtotal securely from DB & validate live stock
     let subtotal = 0;
     for (const item of items) {
-      const dbProduct = await prisma.product.findUnique({
-        where: { id: item.productId },
-        include: { variants: true },
+      const dbProduct = await findProductById(item.productId, {
+        includeVariants: true,
       });
 
       if (!dbProduct || !dbProduct.isActive) {

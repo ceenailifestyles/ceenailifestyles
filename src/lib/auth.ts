@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types";
+import { findUserById } from "@/lib/repositories/user";
 
 const JWT_SECRET = process.env.AUTH_SECRET || "ceenai-fallback-super-secret-key-32chars";
 const CUSTOMER_COOKIE_NAME = "ceenai_customer_session";
@@ -66,19 +66,17 @@ export async function requireAdmin(): Promise<SessionPayload> {
 export async function getCurrentUser() {
   const session = await getCustomerSession();
   if (!session) return null;
-  return prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      addresses: true,
-      createdAt: true,
-    },
-  });
+  const user = await findUserById(session.userId);
+  if (!user) return null;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+    role: user.role,
+    addresses: user.addresses,
+    createdAt: user.createdAt,
+  };
 }
 
 export { CUSTOMER_COOKIE_NAME, ADMIN_COOKIE_NAME };
-

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findUsers } from "@/lib/repositories/user";
 import { getAdminSession } from "@/lib/auth";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +12,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const customers = await prisma.user.findMany({
+    const customers = await findUsers({
       where: { role: Role.CUSTOMER },
       orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        createdAt: true,
-        _count: {
-          select: { orders: true },
-        },
-      },
+      includeOrderCount: true,
     });
 
     return NextResponse.json({ customers });

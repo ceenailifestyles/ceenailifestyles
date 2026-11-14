@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail } from "@/lib/repositories/user";
 import { verifyPassword, signToken, ADMIN_COOKIE_NAME } from "@/lib/auth";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +16,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
+    const user = await findUserByEmail(email.toLowerCase().trim());
 
     if (!user) {
       return NextResponse.json(
@@ -42,12 +40,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const token = signToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-      name: user.name,
-    }, "1d"); // 1 day for admin session
+    const token = signToken(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      },
+      "1d"
+    ); // 1 day for admin session
 
     const response = NextResponse.json({
       success: true,
@@ -64,13 +65,15 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 60 * 24, // 1 day
     });
 
     return response;
   } catch (error) {
     console.error("Admin login error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
-

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findBanners } from "@/lib/repositories/banner";
+import { findCategories } from "@/lib/repositories/category";
+import { findProducts } from "@/lib/repositories/product";
+import { findFirstCollection } from "@/lib/repositories/collection";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 
 export const dynamic = "force-dynamic";
 
@@ -15,70 +19,47 @@ export async function GET() {
       festiveCollection,
       siteSettings,
     ] = await Promise.all([
-      prisma.banner.findMany({
-        where: { isActive: true },
-        orderBy: { displayOrder: "asc" },
-      }),
-      prisma.category.findMany({
+      findBanners({ isActive: true }, { displayOrder: "asc" }),
+      findCategories({
         where: { parentId: null, isActive: true },
         orderBy: { displayOrder: "asc" },
-        include: {
-          children: {
-            where: { isActive: true },
-            orderBy: { displayOrder: "asc" },
-          },
-        },
+        includeChildren: true,
       }),
-      prisma.product.findMany({
+      findProducts({
         where: { isFeatured: true, isActive: true },
         take: 10,
         orderBy: { createdAt: "desc" },
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          images: { take: 2, orderBy: { displayOrder: "asc" } },
-        },
+        includeCategory: true,
+        includeImages: true,
       }),
-      prisma.product.findMany({
+      findProducts({
         where: { isBestSeller: true, isActive: true },
         take: 10,
         orderBy: { createdAt: "desc" },
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          images: { take: 2, orderBy: { displayOrder: "asc" } },
-        },
+        includeCategory: true,
+        includeImages: true,
       }),
-      prisma.product.findMany({
+      findProducts({
         where: { isOffer: true, isActive: true },
         take: 10,
         orderBy: { discount: "desc" },
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          images: { take: 2, orderBy: { displayOrder: "asc" } },
-        },
+        includeCategory: true,
+        includeImages: true,
       }),
-      prisma.product.findMany({
+      findProducts({
         where: { isActive: true },
         take: 8,
         orderBy: { createdAt: "desc" },
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          images: { take: 2, orderBy: { displayOrder: "asc" } },
-        },
+        includeCategory: true,
+        includeImages: true,
       }),
-      prisma.collection.findFirst({
+      findFirstCollection({
         where: { slug: "festive-edit", isActive: true },
-        include: {
-          products: {
-            take: 6,
-            include: { product: true },
-          },
-        },
+        includeProducts: true,
       }),
-      prisma.siteSetting.findMany({
-        where: {
-          key: {
-            in: ["benefits", "about_ceenai", "testimonials", "announcement_bar", "footer_settings"],
-          },
+      findSiteSettings({
+        key: {
+          in: ["benefits", "about_ceenai", "testimonials", "announcement_bar", "footer_settings"],
         },
       }),
     ]);

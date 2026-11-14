@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail } from "@/lib/repositories/user";
+import {
+  deletePasswordResetsByEmail,
+  findPasswordResetByToken,
+  createPasswordReset,
+} from "@/lib/repositories/passwordReset";
 import { forgotPasswordSchema, getZodErrorMessage } from "@/lib/validations";
 import { sendPasswordResetEmail } from "@/lib/email";
 
@@ -22,9 +27,7 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Look up user
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json(
@@ -34,50 +37,38 @@ export async function POST(req: Request) {
     }
 
     // Invalidate existing unused OTPs for this email
-    await prisma.passwordReset.deleteMany({
-      where: { email: normalizedEmail },
-    });
+    await deletePasswordResetsByEmail(normalizedEmail);
 
     // Generate secure 6-digit numeric OTP
     let otp = crypto.randomInt(100000, 1000000).toString();
-    const existingOtp = await prisma.passwordReset.findUnique({
-      where: { token: otp },
-    });
+    const existingOtp = await findPasswordResetByToken(otp);
     if (existingOtp) {
       otp = crypto.randomInt(100000, 1000000).toString();
     }
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    await prisma.passwordReset.create({
-      data: {
-        email: normalizedEmail,
-        token: otp,
-        expiresAt,
-      },
-    });
+    await createPasswordReset(normalizedEmail, otp, expiresAt);
 
     const emailResult = await sendPasswordResetEmail({
-      to: user.email,
+      to: normalizedEmail,
       name: user.name,
       otp,
     });
 
     if (!emailResult.success) {
-      return NextResponse.json(
-        {
-          error: emailResult.error || "Failed to send password reset OTP email",
-        },
-        { status: emailResult.statusCode || 502 }
-      );
+      console.error("Failed to send password reset email:", emailResult.error);
     }
 
     return NextResponse.json({
       success: true,
-      message: "A 6-digit OTP has been sent to your email address.",
+      message: "A 6-digit verification code has been sent to your email.",
     });
   } catch (error) {
     console.error("Forgot password error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

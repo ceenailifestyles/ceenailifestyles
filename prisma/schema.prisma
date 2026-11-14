@@ -3,10 +3,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider   = "prisma-client-js"
-  engineType = "binary"
-}
+// NOTE: Prisma runtime engine has been completely removed in favor of pure mysql2/promise.
+// This schema file is retained strictly as documentation of the MySQL database structure.
 
 enum Role {
   CUSTOMER

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { findUserByEmail } from "@/lib/repositories/user";
+import { findPasswordReset, resetPasswordWithToken } from "@/lib/repositories/passwordReset";
 import { resetPasswordSchema, getZodErrorMessage } from "@/lib/validations";
 import { sendPasswordResetConfirmationEmail } from "@/lib/email";
 
@@ -22,13 +23,7 @@ export async function POST(req: Request) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Find OTP record matching email and 6-digit OTP
-    const resetRecord = await prisma.passwordReset.findFirst({
-      where: {
-        email: normalizedEmail,
-        token: otp.trim(),
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const resetRecord = await findPasswordReset(normalizedEmail, otp.trim());
 
     if (!resetRecord) {
       return NextResponse.json(
@@ -54,9 +49,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Find user
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json(
@@ -65,19 +58,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5. Hash new password & update
+    // 5. Hash new password & update transactionally
     const hashedPassword = await hashPassword(password);
+    const result = await resetPasswordWithToken(otp.trim(), hashedPassword);
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: user.id },
-        data: { password: hashedPassword },
-      }),
-      prisma.passwordReset.update({
-        where: { id: resetRecord.id },
-        data: { usedAt: new Date() },
-      }),
-    ]);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || "Failed to reset password." },
+        { status: 400 }
+      );
+    }
 
     await sendPasswordResetConfirmationEmail({
       to: user.email,

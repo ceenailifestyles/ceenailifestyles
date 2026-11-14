@@ -1,14 +1,12 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import ContentClient from "./ContentClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminContentPage() {
-  const settings = await prisma.siteSetting.findMany({
-    where: {
-      key: { in: ["benefits", "about_ceenai"] },
-    },
+  const settings = await findSiteSettings({
+    key: { in: ["benefits", "about_ceenai"] },
   });
 
   const contentMap: Record<string, any> = {};

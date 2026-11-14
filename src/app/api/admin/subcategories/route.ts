@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCategories, findCategoryById, findCategoryBySlug, createCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 
@@ -15,17 +15,11 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const parentId = searchParams.get("parentId");
 
-    const where: any = {
-      parentId: parentId ? parentId : { not: null },
-    };
-
-    const subcategories = await prisma.category.findMany({
-      where,
+    const subcategories = await findCategories({
+      where: parentId ? { parentId } : { isSubcategory: true },
       orderBy: [{ parentId: "asc" }, { displayOrder: "asc" }],
-      include: {
-        parent: { select: { id: true, name: true, slug: true } },
-        _count: { select: { subProducts: true } },
-      },
+      includeParent: true,
+      includeCounts: true,
     });
 
     return NextResponse.json({ subcategories });
@@ -54,9 +48,7 @@ export async function POST(req: Request) {
     }
 
     // Verify parent category exists and is a top-level category
-    const parent = await prisma.category.findUnique({
-      where: { id: parentId },
-    });
+    const parent = await findCategoryById(parentId);
 
     if (!parent) {
       return NextResponse.json({ error: "Selected parent category does not exist" }, { status: 400 });
@@ -64,29 +56,24 @@ export async function POST(req: Request) {
 
     let slug = body.slug ? slugify(body.slug) : slugify(name);
     // Ensure unique slug
-    const existingSlug = await prisma.category.findUnique({
-      where: { slug },
-    });
+    const existingSlug = await findCategoryBySlug(slug);
     if (existingSlug) {
       slug = `${slug}-${Date.now().toString().slice(-4)}`;
     }
 
-    const subcategory = await prisma.category.create({
-      data: {
-        name: name.trim(),
-        slug,
-        parentId,
-        description: description?.trim() || null,
-        image: image || null,
-        publicId: publicId || null,
-        displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
-        isActive: isActive !== false,
-      },
-      include: {
-        parent: { select: { id: true, name: true, slug: true } },
-        _count: { select: { subProducts: true } },
-      },
+    const subcategory = await createCategory({
+      name: name.trim(),
+      slug,
+      parentId,
+      description: description?.trim() || null,
+      image: image || null,
+      publicId: publicId || null,
+      displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
+      isActive: isActive !== false,
     });
+
+    subcategory.parent = { id: parent.id, name: parent.name, slug: parent.slug } as any;
+    subcategory._count = { subProducts: 0 };
 
     return NextResponse.json({ subcategory }, { status: 201 });
   } catch (error) {

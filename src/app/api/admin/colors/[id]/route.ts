@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { updateColor, deleteColor } from "@/lib/repositories/color";
 import { getAdminSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +25,9 @@ export async function PUT(
       );
     }
 
-    const color = await prisma.color.update({
-      where: { id },
-      data: {
-        name: name.trim(),
-        hex: hex.trim().startsWith("#") ? hex.trim() : `#${hex.trim()}`,
-      },
+    const color = await updateColor(id, {
+      name: name.trim(),
+      hex: hex.trim().startsWith("#") ? hex.trim() : `#${hex.trim()}`,
     });
 
     return NextResponse.json({ color });
@@ -52,9 +49,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.color.delete({
-      where: { id },
-    });
+    await deleteColor(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

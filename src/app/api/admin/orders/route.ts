@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findOrders, updateOrderStatus } from "@/lib/repositories/order";
 import { getAdminSession } from "@/lib/auth";
 import { sendOrderStatusUpdateEmail } from "@/lib/email";
 
@@ -12,11 +12,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const orders = await prisma.order.findMany({
+    const orders = await findOrders({
       orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { id: true, name: true, email: true, phone: true } },
-      },
+      includeUser: true,
     });
 
     return NextResponse.json({ orders });
@@ -38,12 +36,9 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Order id is required" }, { status: 400 });
     }
 
-    const updated = await prisma.order.update({
-      where: { id },
-      data: {
-        ...(status ? { status } : {}),
-        ...(paymentStatus ? { paymentStatus } : {}),
-      },
+    const updated = await updateOrderStatus(id, {
+      ...(status ? { status } : {}),
+      ...(paymentStatus ? { paymentStatus } : {}),
     });
 
     if (updated.customerEmail && (status || paymentStatus)) {

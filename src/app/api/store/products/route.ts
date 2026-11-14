@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findProducts, countProducts } from "@/lib/repositories/product";
 
 export const dynamic = "force-dynamic";
 
@@ -27,29 +27,27 @@ export async function GET(req: Request) {
     };
 
     if (category) {
-      where.category = { slug: category };
+      where.categorySlug = category;
     }
 
     if (subcategory) {
-      where.subcategory = { slug: subcategory };
+      where.subcategorySlug = subcategory;
     }
 
     if (collection) {
-      where.collectionItems = {
-        some: {
-          collection: { slug: collection, isActive: true },
-        },
-      };
+      where.collectionSlug = collection;
     }
 
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      where.sellingPrice = {};
-      if (minPrice !== undefined) where.sellingPrice.gte = minPrice;
-      if (maxPrice !== undefined) where.sellingPrice.lte = maxPrice;
+    if (minPrice !== undefined) {
+      where.minPrice = minPrice;
+    }
+
+    if (maxPrice !== undefined) {
+      where.maxPrice = maxPrice;
     }
 
     if (discount !== undefined) {
-      where.discount = { gte: discount };
+      where.minDiscount = discount;
     }
 
     if (inStock) {
@@ -57,11 +55,7 @@ export async function GET(req: Request) {
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
-        { sku: { contains: search } },
-      ];
+      where.search = search;
     }
 
     let orderBy: any = { createdAt: "desc" };
@@ -70,19 +64,17 @@ export async function GET(req: Request) {
     if (sort === "rating") orderBy = { rating: "desc" };
 
     const [products, totalCount] = await Promise.all([
-      prisma.product.findMany({
+      findProducts({
         where,
         orderBy,
         skip,
         take: limit,
-        include: {
-          category: { select: { id: true, name: true, slug: true } },
-          subcategory: { select: { id: true, name: true, slug: true } },
-          images: { orderBy: { displayOrder: "asc" } },
-          variants: { select: { id: true, size: true, colorName: true, stock: true } },
-        },
+        includeCategory: true,
+        includeSubcategory: true,
+        includeImages: true,
+        includeVariants: true,
       }),
-      prisma.product.count({ where }),
+      countProducts(where),
     ]);
 
     // Client-side array filtering for JSON fields (sizes, colors) if passed

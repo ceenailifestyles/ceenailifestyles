@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPool, generateId } from "@/lib/db";
+import { findOrders, findOrderById } from "@/lib/repositories/order";
+import { findProductById } from "@/lib/repositories/product";
 import { getCustomerSession } from "@/lib/auth";
 import { checkoutSchema, getZodErrorMessage } from "@/lib/validations";
 import { sendOrderConfirmationEmail } from "@/lib/email";
@@ -60,9 +62,8 @@ export async function POST(req: Request) {
     const durableItems: any[] = [];
 
     for (const cartItem of items) {
-      const dbProduct = await prisma.product.findUnique({
-        where: { id: cartItem.productId },
-        include: { variants: true },
+      const dbProduct = await findProductById(cartItem.productId, {
+        includeVariants: true,
       });
 
       if (!dbProduct || !dbProduct.isActive) {
@@ -140,53 +141,95 @@ export async function POST(req: Request) {
     const total = subtotal + shippingFee;
 
     const orderNumber = `CEE-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+    const now = new Date();
+    const orderId = generateId();
 
-    const order = await prisma.$transaction(async (tx) => {
-      // 1. Decrement stock for product and specific variant
+    const pool = getPool();
+    const conn = await pool.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      // 1. Lock and decrement stock atomically (UPDATE ... SET stock = stock - ? WHERE id = ? AND stock >= ?)
       for (const itm of durableItems) {
-        await tx.product.update({
-          where: { id: itm.productId },
-          data: { stock: { decrement: itm.quantity } },
-        });
+        const [prodRes] = await conn.execute(
+          "UPDATE `products` SET `stock` = `stock` - ?, `updatedAt` = ? WHERE `id` = ? AND `stock` >= ?",
+          [itm.quantity, now, itm.productId, itm.quantity]
+        );
+        const affectedProd = (prodRes as any).affectedRows;
+        if (affectedProd === 0) {
+          await conn.rollback();
+          return NextResponse.json(
+            { error: `Insufficient stock for "${itm.name}".` },
+            { status: 400 }
+          );
+        }
 
         if (itm.variantId) {
-          await tx.productVariant.update({
-            where: { id: itm.variantId },
-            data: { stock: { decrement: itm.quantity } },
-          });
+          const [varRes] = await conn.execute(
+            "UPDATE `product_variants` SET `stock` = `stock` - ?, `updatedAt` = ? WHERE `id` = ? AND `stock` >= ?",
+            [itm.quantity, now, itm.variantId, itm.quantity]
+          );
+          const affectedVar = (varRes as any).affectedRows;
+          if (affectedVar === 0) {
+            await conn.rollback();
+            return NextResponse.json(
+              { error: `Insufficient stock for "${itm.name}" variant.` },
+              { status: 400 }
+            );
+          }
         }
       }
 
       // 2. Create Order
-      return tx.order.create({
-        data: {
+      await conn.execute(
+        `INSERT INTO \`orders\` (
+          \`id\`, \`orderNumber\`, \`userId\`, \`customerName\`, \`customerEmail\`,
+          \`customerPhone\`, \`shippingAddress\`, \`items\`, \`subtotal\`, \`shippingFee\`,
+          \`discount\`, \`total\`, \`status\`, \`paymentStatus\`, \`paymentMethod\`,
+          \`notes\`, \`createdAt\`, \`updatedAt\`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          orderId,
           orderNumber,
-          userId: session?.userId || null,
-          customerName: cust.customerName,
-          customerEmail: cust.customerEmail,
-          customerPhone: cust.customerPhone,
-          shippingAddress: {
+          session?.userId || null,
+          cust.customerName,
+          cust.customerEmail,
+          cust.customerPhone,
+          JSON.stringify({
             addressLine: cust.addressLine,
             city: cust.city,
             state: cust.state,
             postalCode: cust.postalCode,
-          },
-          items: durableItems,
+          }),
+          JSON.stringify(durableItems),
           subtotal,
           shippingFee,
+          0,
           total,
-          status: "CONFIRMED",
-          paymentStatus: cust.paymentMethod === "ONLINE" ? "PAID" : "PENDING",
-          paymentMethod: cust.paymentMethod,
-          notes: cust.notes || null,
-        },
-      });
-    });
+          "CONFIRMED",
+          cust.paymentMethod === "ONLINE" ? "PAID" : "PENDING",
+          cust.paymentMethod,
+          cust.notes || null,
+          now,
+          now,
+        ]
+      );
+
+      await conn.commit();
+    } catch (txError) {
+      await conn.rollback();
+      throw txError;
+    } finally {
+      conn.release();
+    }
+
+    const order = await findOrderById(orderId);
 
     await sendOrderConfirmationEmail({
       to: cust.customerEmail,
       customerName: cust.customerName,
-      orderNumber: order.orderNumber,
+      orderNumber: order?.orderNumber || orderNumber,
       items: durableItems,
       subtotal,
       shippingFee,
@@ -214,7 +257,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const orders = await prisma.order.findMany({
+    const orders = await findOrders({
       where: { userId: session.userId },
       orderBy: { createdAt: "desc" },
     });

@@ -1,12 +1,12 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findColors } from "@/lib/repositories/color";
 import ColorsClient from "./ColorsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminColorsPage() {
-  const colors = await prisma.color.findMany({
-    orderBy: { name: "asc" },
+  const colors = await findColors({
+    name: "asc",
   });
 
   return (

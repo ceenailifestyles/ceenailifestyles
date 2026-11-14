@@ -1,5 +1,8 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { countProducts, findProducts } from "@/lib/repositories/product";
+import { countCategories } from "@/lib/repositories/category";
+import { countUsers } from "@/lib/repositories/user";
+import { countOrders, findOrders, getRevenueSum } from "@/lib/repositories/order";
 import Link from "next/link";
 import {
   Package,
@@ -13,7 +16,7 @@ import {
   FileText,
 } from "lucide-react";
 import { formatINR } from "@/lib/utils";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -25,30 +28,23 @@ export default async function AdminDashboardPage() {
     totalOrders,
     recentOrders,
     recentProducts,
-    revenueData,
+    totalRevenue,
   ] = await Promise.all([
-    prisma.product.count(),
-    prisma.category.count({ where: { parentId: null } }),
-    prisma.user.count({ where: { role: Role.CUSTOMER } }),
-    prisma.order.count(),
-    prisma.order.findMany({
+    countProducts(),
+    countCategories({ parentId: null }),
+    countUsers({ role: Role.CUSTOMER }),
+    countOrders(),
+    findOrders({
       take: 6,
       orderBy: { createdAt: "desc" },
     }),
-    prisma.product.findMany({
+    findProducts({
       take: 6,
       orderBy: { createdAt: "desc" },
-      include: {
-        category: { select: { name: true } },
-      },
+      includeCategory: true,
     }),
-    prisma.order.aggregate({
-      _sum: { total: true },
-      where: { status: { not: "CANCELLED" } },
-    }),
+    getRevenueSum(),
   ]);
-
-  const totalRevenue = revenueData._sum.total || 0;
 
   const statCards = [
     {

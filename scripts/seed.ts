@@ -1,74 +1,64 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { execute, generateId, getPool } from "@/lib/db";
+import { Role } from "@/lib/types";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
-
 async function main() {
-  console.log("Seeding database for Ceenai...");
+  console.log("Seeding database for Ceenai (via pure mysql2)...");
 
-  // 1. Clean existing records safely
-  await prisma.collectionProduct.deleteMany();
-  await prisma.collection.deleteMany();
-  await prisma.productImage.deleteMany();
-  await prisma.wishlist.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.cart.deleteMany();
-  await prisma.product.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.banner.deleteMany();
-  await prisma.siteSetting.deleteMany();
-  await prisma.passwordReset.deleteMany();
-  await prisma.user.deleteMany();
+  // 1. Clean existing records safely in order of foreign key dependencies
+  await execute("DELETE FROM `collection_products`");
+  await execute("DELETE FROM `collections`");
+  await execute("DELETE FROM `product_images`");
+  await execute("DELETE FROM `product_variants`");
+  await execute("DELETE FROM `wishlists`");
+  await execute("DELETE FROM `orders`");
+  await execute("DELETE FROM `carts`");
+  await execute("DELETE FROM `products`");
+  await execute("DELETE FROM `categories`");
+  await execute("DELETE FROM `banners`");
+  await execute("DELETE FROM `site_settings`");
+  await execute("DELETE FROM `password_resets`");
+  await execute("DELETE FROM `users`");
+
+  const now = new Date();
 
   // 2. Create Users
   const adminPassword = await bcrypt.hash("Admin@123", 12);
   const customerPassword = await bcrypt.hash("Customer@123", 12);
 
-  const superAdmin = await prisma.user.create({
-    data: {
-      name: "Ceenai Super Admin",
-      email: "superadmin@ceenai.in",
-      password: adminPassword,
-      role: Role.SUPER_ADMIN,
-      phone: "9987087055",
-    },
-  });
+  const superAdminId = generateId();
+  await execute(
+    "INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `phone`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [superAdminId, "Ceenai Super Admin", "superadmin@ceenai.in", adminPassword, Role.SUPER_ADMIN, "9987087055", now, now]
+  );
 
-  const admin = await prisma.user.create({
-    data: {
-      name: "Ceenai Admin",
-      email: "admin@ceenai.in",
-      password: adminPassword,
-      role: Role.ADMIN,
-      phone: "9987087055",
-    },
-  });
+  const adminId = generateId();
+  await execute(
+    "INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `phone`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [adminId, "Ceenai Admin", "admin@ceenai.in", adminPassword, Role.ADMIN, "9987087055", now, now]
+  );
 
-  const customer = await prisma.user.create({
-    data: {
+  const customerId = generateId();
+  const customerAddresses = [
+    {
+      id: "addr_1",
       name: "Priya Sharma",
-      email: "priya.sharma@example.com",
-      password: customerPassword,
-      role: Role.CUSTOMER,
       phone: "9876543210",
-      addresses: [
-        {
-          id: "addr_1",
-          name: "Priya Sharma",
-          phone: "9876543210",
-          addressLine: "Flat 402, Lotus Residency, Link Road",
-          city: "Mumbai",
-          state: "Maharashtra",
-          postalCode: "400064",
-          isDefault: true,
-        },
-      ],
+      addressLine: "Flat 402, Lotus Residency, Link Road",
+      city: "Mumbai",
+      state: "Maharashtra",
+      postalCode: "400064",
+      isDefault: true,
     },
-  });
+  ];
+  await execute(
+    "INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `phone`, `addresses`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [customerId, "Priya Sharma", "priya.sharma@example.com", customerPassword, Role.CUSTOMER, "9876543210", JSON.stringify(customerAddresses), now, now]
+  );
 
-  console.log("Users created:", { superAdmin: superAdmin.email, admin: admin.email, customer: customer.email });
+  console.log("Users created:", { superAdmin: "superadmin@ceenai.in", admin: "admin@ceenai.in", customer: "priya.sharma@example.com" });
 
-  // 3. Create Categories and Subcategories (Exact 7 Primary Categories)
+  // 3. Create Categories and Subcategories
   const categoriesData = [
     {
       name: "Indian Wear",
@@ -180,101 +170,94 @@ async function main() {
     },
   ];
 
-  const categoryMap = new Map<string, any>();
-  const subcategoryMap = new Map<string, any>();
+  const categoryMap = new Map<string, string>();
+  const subcategoryMap = new Map<string, string>();
 
   for (const cat of categoriesData) {
-    const createdCat = await prisma.category.create({
-      data: {
-        name: cat.name,
-        slug: cat.slug,
-        description: cat.description,
-        image: cat.image,
-        displayOrder: cat.displayOrder,
-        isActive: true,
-      },
-    });
-    categoryMap.set(cat.slug, createdCat);
+    const catId = generateId();
+    await execute(
+      "INSERT INTO `categories` (`id`, `name`, `slug`, `description`, `image`, `displayOrder`, `isActive`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [catId, cat.name, cat.slug, cat.description, cat.image, cat.displayOrder, 1, now, now]
+    );
+    categoryMap.set(cat.slug, catId);
 
     for (let i = 0; i < cat.subcategories.length; i++) {
       const subName = cat.subcategories[i];
       const subSlug = `${cat.slug}-${subName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-      const createdSub = await prisma.category.create({
-        data: {
-          name: subName,
-          slug: subSlug,
-          parentId: createdCat.id,
-          displayOrder: i + 1,
-          isActive: true,
-        },
-      });
-      subcategoryMap.set(subName, createdSub);
+      const subId = generateId();
+      await execute(
+        "INSERT INTO `categories` (`id`, `name`, `slug`, `parentId`, `displayOrder`, `isActive`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [subId, subName, subSlug, catId, i + 1, 1, now, now]
+      );
+      subcategoryMap.set(subName, subId);
     }
   }
 
   console.log("Categories and subcategories created.");
 
   // 4. Create Hero Banners
-  await prisma.banner.createMany({
-    data: [
-      {
-        title: "Ceenai FESTIVE '26",
-        subtitle: "Celebrate In Splendor",
-        desktopImage: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1920&q=85",
-        mobileImage: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85",
-        ctaText: "Shop Now",
-        ctaLink: "/products?collection=festive-edit",
-        displayOrder: 1,
-        isActive: true,
-      },
-      {
-        title: "Timeless Elegance",
-        subtitle: "Couture for the Modern Indian Woman",
-        desktopImage: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1920&q=85",
-        mobileImage: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=900&q=85",
-        ctaText: "SHOP NEW ARRIVALS →",
-        ctaLink: "/products?new=true",
-        displayOrder: 2,
-        isActive: true,
-      },
-    ],
-  });
+  const banner1Id = generateId();
+  await execute(
+    `INSERT INTO \`banners\` (
+      \`id\`, \`title\`, \`subtitle\`, \`desktopImage\`, \`mobileImage\`, \`ctaText\`,
+      \`ctaLink\`, \`displayOrder\`, \`isActive\`, \`createdAt\`, \`updatedAt\`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      banner1Id,
+      "Ceenai FESTIVE '26",
+      "Celebrate In Splendor",
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1920&q=85",
+      "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85",
+      "Shop Now",
+      "/products?collection=festive-edit",
+      1,
+      1,
+      now,
+      now,
+    ]
+  );
+
+  const banner2Id = generateId();
+  await execute(
+    `INSERT INTO \`banners\` (
+      \`id\`, \`title\`, \`subtitle\`, \`desktopImage\`, \`mobileImage\`, \`ctaText\`,
+      \`ctaLink\`, \`displayOrder\`, \`isActive\`, \`createdAt\`, \`updatedAt\`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      banner2Id,
+      "Timeless Elegance",
+      "Couture for the Modern Indian Woman",
+      "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1920&q=85",
+      "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=900&q=85",
+      "SHOP NEW ARRIVALS →",
+      "/products?new=true",
+      2,
+      1,
+      now,
+      now,
+    ]
+  );
 
   // 5. Create Collections
-  const festiveCol = await prisma.collection.create({
-    data: {
-      title: "Festive Edit",
-      slug: "festive-edit",
-      description: "Dresses, Suits & More for Your Special Occasions",
-      bannerImage: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80",
-      isActive: true,
-      displayOrder: 1,
-    },
-  });
+  const festiveColId = generateId();
+  await execute(
+    "INSERT INTO `collections` (`id`, `title`, `slug`, `description`, `bannerImage`, `displayOrder`, `isActive`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [festiveColId, "Festive Edit", "festive-edit", "Dresses, Suits & More for Your Special Occasions", "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=80", 1, 1, now, now]
+  );
 
-  const bestSellersCol = await prisma.collection.create({
-    data: {
-      title: "Best Sellers",
-      slug: "best-sellers",
-      description: "Customer favourites crafted with premium quality.",
-      bannerImage: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80",
-      isActive: true,
-      displayOrder: 2,
-    },
-  });
+  const bestSellersColId = generateId();
+  await execute(
+    "INSERT INTO `collections` (`id`, `title`, `slug`, `description`, `bannerImage`, `displayOrder`, `isActive`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [bestSellersColId, "Best Sellers", "best-sellers", "Customer favourites crafted with premium quality.", "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80", 2, 1, now, now]
+  );
 
-  const newArrivalsCol = await prisma.collection.create({
-    data: {
-      title: "New Arrivals",
-      slug: "new-arrivals",
-      description: "The latest styles, just for you.",
-      bannerImage: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80",
-      isActive: true,
-      displayOrder: 3,
-    },
-  });
+  const newArrivalsColId = generateId();
+  await execute(
+    "INSERT INTO `collections` (`id`, `title`, `slug`, `description`, `bannerImage`, `displayOrder`, `isActive`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [newArrivalsColId, "New Arrivals", "new-arrivals", "The latest styles, just for you.", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80", 3, 1, now, now]
+  );
 
-  // 6. Create Products (Exact from screenshots + additional catalog items)
+  // 6. Create Products
   const productsData = [
     {
       name: "Embroidered A-Line Kurti",
@@ -580,165 +563,177 @@ async function main() {
   ];
 
   for (const item of productsData) {
-    const parentCat = categoryMap.get(item.categorySlug);
-    const subCat = item.subName ? subcategoryMap.get(item.subName) : null;
+    const parentCatId = categoryMap.get(item.categorySlug);
+    const subCatId = item.subName ? subcategoryMap.get(item.subName) || null : null;
+    const productId = generateId();
 
-    const product = await prisma.product.create({
-      data: {
-        name: item.name,
-        slug: item.slug,
-        sku: item.sku,
-        description: item.description,
-        shortDescription: item.shortDescription,
-        categoryId: parentCat.id,
-        subcategoryId: subCat?.id || null,
-        sellingPrice: item.sellingPrice,
-        originalPrice: item.originalPrice,
-        discount: item.discount,
-        mainImage: item.mainImage,
-        sizes: item.sizes,
-        colors: item.colors,
-        stock: item.stock,
-        isFeatured: item.isFeatured,
-        isBestSeller: item.isBestSeller,
-        isNewArrival: item.isNewArrival,
-        isOffer: item.isOffer,
-        isActive: true,
-        rating: item.rating,
-        reviewCount: item.reviewCount,
-        images: {
-          create: item.gallery.map((url, idx) => ({
-            url,
-            displayOrder: idx,
-          })),
-        },
-      },
-    });
+    await execute(
+      `INSERT INTO \`products\` (
+        \`id\`, \`name\`, \`slug\`, \`sku\`, \`description\`, \`shortDescription\`,
+        \`categoryId\`, \`subcategoryId\`, \`sellingPrice\`, \`originalPrice\`, \`discount\`,
+        \`productType\`, \`mainImage\`, \`sizes\`, \`colors\`, \`stock\`,
+        \`isFeatured\`, \`isBestSeller\`, \`isNewArrival\`, \`isOffer\`, \`isActive\`,
+        \`rating\`, \`reviewCount\`, \`createdAt\`, \`updatedAt\`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        productId,
+        item.name,
+        item.slug,
+        item.sku,
+        item.description,
+        item.shortDescription,
+        parentCatId,
+        subCatId,
+        item.sellingPrice,
+        item.originalPrice,
+        item.discount,
+        "NORMAL",
+        item.mainImage,
+        JSON.stringify(item.sizes),
+        JSON.stringify(item.colors),
+        item.stock,
+        item.isFeatured ? 1 : 0,
+        item.isBestSeller ? 1 : 0,
+        item.isNewArrival ? 1 : 0,
+        item.isOffer ? 1 : 0,
+        1,
+        item.rating,
+        item.reviewCount,
+        now,
+        now,
+      ]
+    );
+
+    // Gallery images
+    for (let idx = 0; idx < item.gallery.length; idx++) {
+      const imgId = generateId();
+      await execute(
+        "INSERT INTO `product_images` (`id`, `productId`, `url`, `displayOrder`, `createdAt`) VALUES (?, ?, ?, ?, ?)",
+        [imgId, productId, item.gallery[idx], idx, now]
+      );
+    }
 
     // Add to collections
     if (item.categorySlug === "indian-wear" || item.isOffer) {
-      await prisma.collectionProduct.create({
-        data: {
-          collectionId: festiveCol.id,
-          productId: product.id,
-          displayOrder: 1,
-        },
-      });
+      await execute(
+        "INSERT INTO `collection_products` (`id`, `collectionId`, `productId`, `displayOrder`) VALUES (?, ?, ?, ?)",
+        [generateId(), festiveColId, productId, 1]
+      );
     }
 
     if (item.isBestSeller) {
-      await prisma.collectionProduct.create({
-        data: {
-          collectionId: bestSellersCol.id,
-          productId: product.id,
-          displayOrder: 2,
-        },
-      });
+      await execute(
+        "INSERT INTO `collection_products` (`id`, `collectionId`, `productId`, `displayOrder`) VALUES (?, ?, ?, ?)",
+        [generateId(), bestSellersColId, productId, 2]
+      );
     }
 
     if (item.isNewArrival) {
-      await prisma.collectionProduct.create({
-        data: {
-          collectionId: newArrivalsCol.id,
-          productId: product.id,
-          displayOrder: 3,
-        },
-      });
+      await execute(
+        "INSERT INTO `collection_products` (`id`, `collectionId`, `productId`, `displayOrder`) VALUES (?, ?, ?, ?)",
+        [generateId(), newArrivalsColId, productId, 3]
+      );
     }
   }
 
   console.log("Products and collection mappings created.");
 
-  // 7. Site Settings (Announcement, Benefits, About, Testimonials, Contact, Socials)
-  await prisma.siteSetting.createMany({
-    data: [
-      {
-        key: "announcement_bar",
-        value: {
-          address: "Om Kripa CHS, Shop No. 1, Janakalyan Road, Off Marve Road, Malad West, Mumbai - 400095",
-          phone: "9987087055",
-          email: "support@ceenai.in",
-          isActive: true,
-        },
+  // 7. Site Settings
+  const siteSettings = [
+    {
+      key: "announcement_bar",
+      value: {
+        address: "Om Kripa CHS, Shop No. 1, Janakalyan Road, Off Marve Road, Malad West, Mumbai - 400095",
+        phone: "9987087055",
+        email: "support@ceenai.in",
+        isActive: true,
       },
-      {
-        key: "benefits",
-        value: [
-          {
-            title: "Free Shipping",
-            subtitle: "On Orders Above ₹999",
-            icon: "Truck",
-          },
-          {
-            title: "Easy Returns",
-            subtitle: "Hassle-free Exchange",
-            icon: "RefreshCw",
-          },
-          {
-            title: "Secure Payments",
-            subtitle: "100% Safe & Encrypted",
-            icon: "ShieldCheck",
-          },
-          {
-            title: "Visit Our Store",
-            subtitle: "Malad West, Mumbai",
-            icon: "Store",
-          },
-          {
-            title: "Trusted Quality",
-            subtitle: "Style, Comfort & Value",
-            icon: "Award",
-          },
+    },
+    {
+      key: "benefits",
+      value: [
+        {
+          title: "Free Shipping",
+          subtitle: "On Orders Above ₹999",
+          icon: "Truck",
+        },
+        {
+          title: "Easy Returns",
+          subtitle: "Hassle-free Exchange",
+          icon: "RefreshCw",
+        },
+        {
+          title: "Secure Payments",
+          subtitle: "100% Safe & Encrypted",
+          icon: "ShieldCheck",
+        },
+        {
+          title: "Visit Our Store",
+          subtitle: "Malad West, Mumbai",
+          icon: "Store",
+        },
+        {
+          title: "Trusted Quality",
+          subtitle: "Style, Comfort & Value",
+          icon: "Award",
+        },
+      ],
+    },
+    {
+      key: "about_ceenai",
+      value: {
+        heading: "About Ceenai",
+        subheading: "A Story That Begins With You.",
+        description: "What began with a passion for stylish nightwear on Amazon has grown into a complete women's fashion and lifestyle destination offering Indian wear, western wear, nightwear, accessories and more.",
+        storeImage: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80",
+        ctaText: "Know Our Story →",
+        ctaLink: "/about",
+        pillars: [
+          { title: "Style", desc: "Trendy & Timeless" },
+          { title: "Comfort", desc: "Feels as Good as It Looks" },
+          { title: "Value", desc: "Great Fashion at Sensible Prices" },
+          { title: "Choice", desc: "A Growing Range for Every Occasion" },
         ],
       },
-      {
-        key: "about_ceenai",
-        value: {
-          heading: "About Ceenai",
-          subheading: "A Story That Begins With You.",
-          description: "What began with a passion for stylish nightwear on Amazon has grown into a complete women's fashion and lifestyle destination offering Indian wear, western wear, nightwear, accessories and more.",
-          storeImage: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80",
-          ctaText: "Know Our Story →",
-          ctaLink: "/about",
-          pillars: [
-            { title: "Style", desc: "Trendy & Timeless" },
-            { title: "Comfort", desc: "Feels as Good as It Looks" },
-            { title: "Value", desc: "Great Fashion at Sensible Prices" },
-            { title: "Choice", desc: "A Growing Range for Every Occasion" },
-          ],
+    },
+    {
+      key: "testimonials",
+      value: [
+        {
+          id: "t1",
+          quote: "Beautiful collection, great quality and very comfortable! Ceenai is now my go-to for every occasion.",
+          author: "Priya S.",
+          role: "Verified Customer",
+          rating: 5,
+          avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
         },
-      },
-      {
-        key: "testimonials",
-        value: [
-          {
-            id: "t1",
-            quote: "Beautiful collection, great quality and very comfortable! Ceenai is now my go-to for every occasion.",
-            author: "Priya S.",
-            role: "Verified Customer",
-            rating: 5,
-            avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80",
-          },
-        ],
-      },
-      {
-        key: "footer_settings",
-        value: {
-          brandDescription: "Right Nightwear Beginnings to Everyday Elegance.",
-          phone: "9987087055",
-          email: "support@ceenai.in",
-          storeAddress: "Om Kripa CHS, Shop No. 1, Janakalyan Road, Off Marve Road, Malad West, Mumbai - 400095",
-          socialLinks: {
-            instagram: "https://instagram.com/ceenai",
-            facebook: "https://facebook.com/ceenai",
-            youtube: "https://youtube.com/@ceenai",
-            pinterest: "https://pinterest.com/ceenai",
-          },
-          copyright: "© 2026 Ceenai. All Rights Reserved.",
+      ],
+    },
+    {
+      key: "footer_settings",
+      value: {
+        brandDescription: "Right Nightwear Beginnings to Everyday Elegance.",
+        phone: "9987087055",
+        email: "support@ceenai.in",
+        storeAddress: "Om Kripa CHS, Shop No. 1, Janakalyan Road, Off Marve Road, Malad West, Mumbai - 400095",
+        socialLinks: {
+          instagram: "https://instagram.com/ceenai",
+          facebook: "https://facebook.com/ceenai",
+          youtube: "https://youtube.com/@ceenai",
+          pinterest: "https://pinterest.com/ceenai",
         },
+        copyright: "© 2026 Ceenai. All Rights Reserved.",
       },
-    ],
-  });
+    },
+  ];
+
+  for (const s of siteSettings) {
+    const sId = generateId();
+    await execute(
+      "INSERT INTO `site_settings` (`id`, `key`, `value`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?)",
+      [sId, s.key, JSON.stringify(s.value), now, now]
+    );
+  }
 
   console.log("Site settings seeded.");
   console.log("Database seeding completed successfully!");
@@ -750,6 +745,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    const pool = getPool();
+    await pool.end();
   });
 

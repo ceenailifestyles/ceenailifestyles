@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findUserByEmail, createUser } from "@/lib/repositories/user";
 import { hashPassword, signToken, CUSTOMER_COOKIE_NAME } from "@/lib/auth";
 import { customerRegisterSchema, getZodErrorMessage } from "@/lib/validations";
 import { sendWelcomeEmail } from "@/lib/email";
-import { Role } from "@prisma/client";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +20,7 @@ export async function POST(req: Request) {
     }
 
     const { name, email, password, phone } = validated.data;
-    const existing = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    const existing = await findUserByEmail(email.toLowerCase());
 
     if (existing) {
       return NextResponse.json(
@@ -32,14 +30,12 @@ export async function POST(req: Request) {
     }
 
     const hashedPassword = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        phone: phone || null,
-        role: Role.CUSTOMER,
-      },
+    const user = await createUser({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      phone: phone || null,
+      role: Role.CUSTOMER,
     });
 
     await sendWelcomeEmail({
@@ -76,6 +72,9 @@ export async function POST(req: Request) {
     return response;
   } catch (error) {
     console.error("Register error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

@@ -1,26 +1,18 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findCollections } from "@/lib/repositories/collection";
+import { findProducts } from "@/lib/repositories/product";
 import CollectionsClient from "./CollectionsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCollectionsPage() {
   const [collections, allProducts] = await Promise.all([
-    prisma.collection.findMany({
+    findCollections({
       orderBy: { displayOrder: "asc" },
-      include: {
-        products: {
-          include: {
-            product: {
-              select: { id: true, name: true, mainImage: true, sellingPrice: true },
-            },
-          },
-        },
-      },
+      includeProducts: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where: { isActive: true },
-      select: { id: true, name: true, mainImage: true, sellingPrice: true },
       orderBy: { name: "asc" },
     }),
   ]);

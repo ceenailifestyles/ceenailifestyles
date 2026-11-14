@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findSizes, findSizeByName, createSize } from "@/lib/repositories/size";
 import { getAdminSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sizes = await prisma.size.findMany({
-      orderBy: { displayOrder: "asc" },
-    });
+    const sizes = await findSizes({ displayOrder: "asc" });
 
     return NextResponse.json({ sizes });
   } catch (error) {
@@ -36,9 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Size label is required" }, { status: 400 });
     }
 
-    const existing = await prisma.size.findUnique({
-      where: { name: name.trim().toUpperCase() },
-    });
+    const existing = await findSizeByName(name.trim().toUpperCase());
 
     if (existing) {
       return NextResponse.json(
@@ -47,11 +43,9 @@ export async function POST(req: Request) {
       );
     }
 
-    const size = await prisma.size.create({
-      data: {
-        name: name.trim().toUpperCase(),
-        displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
-      },
+    const size = await createSize({
+      name: name.trim().toUpperCase(),
+      displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
     });
 
     return NextResponse.json({ size }, { status: 201 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findBanners, createBanner } from "@/lib/repositories/banner";
 import { getAdminSession } from "@/lib/auth";
 import { bannerSchema, getZodErrorMessage } from "@/lib/validations";
 
@@ -12,9 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const banners = await prisma.banner.findMany({
-      orderBy: { displayOrder: "asc" },
-    });
+    const banners = await findBanners(undefined, { displayOrder: "asc" });
 
     return NextResponse.json({ banners });
   } catch (error) {
@@ -41,19 +39,17 @@ export async function POST(req: Request) {
     }
 
     const data = validated.data;
-    const banner = await prisma.banner.create({
-      data: {
-        title: data.title,
-        subtitle: data.subtitle || null,
-        desktopImage: data.desktopImage,
-        desktopPublicId: data.desktopPublicId || null,
-        mobileImage: data.mobileImage || null,
-        mobilePublicId: data.mobilePublicId || null,
-        ctaText: data.ctaText,
-        ctaLink: data.ctaLink,
-        displayOrder: data.displayOrder,
-        isActive: data.isActive,
-      },
+    const banner = await createBanner({
+      title: data.title,
+      subtitle: data.subtitle || null,
+      desktopImage: data.desktopImage,
+      desktopPublicId: data.desktopPublicId || null,
+      mobileImage: data.mobileImage || null,
+      mobilePublicId: data.mobilePublicId || null,
+      ctaText: data.ctaText,
+      ctaLink: data.ctaLink,
+      displayOrder: data.displayOrder,
+      isActive: data.isActive,
     });
 
     return NextResponse.json({ success: true, banner });

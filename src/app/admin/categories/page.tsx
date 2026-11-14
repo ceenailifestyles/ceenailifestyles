@@ -1,22 +1,15 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
 import CategoriesClient from "./CategoriesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminCategoriesPage() {
-  const categories = await prisma.category.findMany({
+  const categories = await findCategories({
     where: { parentId: null },
     orderBy: { displayOrder: "asc" },
-    include: {
-      children: {
-        orderBy: { displayOrder: "asc" },
-        include: {
-          _count: { select: { subProducts: true } },
-        },
-      },
-      _count: { select: { products: true } },
-    },
+    includeChildren: true,
+    includeCounts: true,
   });
 
   return (

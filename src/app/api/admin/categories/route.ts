@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCategories, findCategoryBySlug, createCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { categorySchema, getZodErrorMessage } from "@/lib/validations";
 
@@ -12,18 +12,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const categories = await prisma.category.findMany({
+    const categories = await findCategories({
       where: { parentId: null },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: {
-          orderBy: { displayOrder: "asc" },
-          include: {
-            _count: { select: { subProducts: true } },
-          },
-        },
-        _count: { select: { products: true } },
-      },
+      includeChildren: true,
+      includeCounts: true,
     });
 
     return NextResponse.json({ categories });
@@ -51,9 +44,7 @@ export async function POST(req: Request) {
     }
 
     const data = validated.data;
-    const existing = await prisma.category.findUnique({
-      where: { slug: data.slug },
-    });
+    const existing = await findCategoryBySlug(data.slug);
 
     if (existing) {
       return NextResponse.json(
@@ -62,17 +53,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const category = await prisma.category.create({
-      data: {
-        name: data.name,
-        slug: data.slug,
-        description: data.description || null,
-        image: data.image || null,
-        publicId: data.publicId || null,
-        displayOrder: data.displayOrder,
-        isActive: data.isActive,
-        parentId: data.parentId || null,
-      },
+    const category = await createCategory({
+      name: data.name,
+      slug: data.slug,
+      description: data.description || null,
+      image: data.image || null,
+      publicId: data.publicId || null,
+      displayOrder: data.displayOrder,
+      isActive: data.isActive,
+      parentId: data.parentId || null,
     });
 
     return NextResponse.json({ success: true, category });

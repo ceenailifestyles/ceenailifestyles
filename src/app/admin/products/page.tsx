@@ -1,5 +1,8 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findProducts } from "@/lib/repositories/product";
+import { findCategories } from "@/lib/repositories/category";
+import { findColors } from "@/lib/repositories/color";
+import { findSizes } from "@/lib/repositories/size";
 import AdminProductsTable from "./AdminProductsTable";
 
 export const dynamic = "force-dynamic";
@@ -13,44 +16,28 @@ export default async function AdminProductsPage({ searchParams }: AdminProductsP
 
   const where: any = {};
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { sku: { contains: search } },
-    ];
+    where.search = search;
   }
   if (categoryId) {
     where.categoryId = categoryId;
   }
 
   const [products, categories, colors, sizes] = await Promise.all([
-    prisma.product.findMany({
+    findProducts({
       where,
       orderBy: { createdAt: "desc" },
-      include: {
-        category: { select: { id: true, name: true } },
-        subcategory: { select: { id: true, name: true } },
-        images: { orderBy: { displayOrder: "asc" } },
-        variants: true,
-      },
+      includeCategory: true,
+      includeSubcategory: true,
+      includeImages: true,
+      includeVariants: true,
     }),
-    prisma.category.findMany({
+    findCategories({
       where: { parentId: null },
       orderBy: { displayOrder: "asc" },
-      select: {
-        id: true,
-        name: true,
-        children: {
-          select: { id: true, name: true },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
+      includeChildren: true,
     }),
-    prisma.color.findMany({
-      orderBy: { name: "asc" },
-    }),
-    prisma.size.findMany({
-      orderBy: { displayOrder: "asc" },
-    }),
+    findColors({ name: "asc" }),
+    findSizes({ displayOrder: "asc" }),
   ]);
 
   return (

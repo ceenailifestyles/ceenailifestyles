@@ -1,5 +1,7 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findProductBySlug, findProducts } from "@/lib/repositories/product";
+import { findCategories } from "@/lib/repositories/category";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import { notFound } from "next/navigation";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
@@ -16,14 +18,11 @@ interface ProductPageProps {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    include: {
-      category: true,
-      subcategory: true,
-      images: { orderBy: { displayOrder: "asc" } },
-      variants: true,
-    },
+  const product = await findProductBySlug(slug, {
+    includeCategory: true,
+    includeSubcategory: true,
+    includeImages: true,
+    includeVariants: true,
   });
 
   if (!product || !product.isActive) {
@@ -31,30 +30,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   // Fetch related products from same category
-  const relatedProducts = await prisma.product.findMany({
+  const relatedProducts = await findProducts({
     where: {
       categoryId: product.categoryId,
       isActive: true,
       NOT: { id: product.id },
     },
     take: 5,
-    include: {
-      category: { select: { name: true, slug: true } },
-      variants: { select: { id: true, size: true, colorName: true, stock: true } },
-    },
+    includeCategory: true,
+    includeVariants: true,
   });
 
   // Fetch site settings and categories for header
   const [categories, siteSettings] = await Promise.all([
-    prisma.category.findMany({
+    findCategories({
       where: { parentId: null, isActive: true },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
-      },
+      includeChildren: true,
     }),
-    prisma.siteSetting.findMany({
-      where: { key: { in: ["announcement_bar", "footer_settings"] } },
+    findSiteSettings({
+      key: { in: ["announcement_bar", "footer_settings"] },
     }),
   ]);
 

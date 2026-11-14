@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCategoryById, findFirstCategory, updateCategory, deleteCategory } from "@/lib/repositories/category";
+import { countProducts } from "@/lib/repositories/product";
 import { getAdminSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 
@@ -28,30 +29,29 @@ export async function PUT(
 
     let slug = body.slug ? slugify(body.slug) : slugify(name);
     // Check slug collision with other records
-    const existing = await prisma.category.findFirst({
-      where: { slug, id: { not: id } },
+    const existing = await findFirstCategory({
+      slug,
+      NOT: { id },
     });
     if (existing) {
       slug = `${slug}-${Date.now().toString().slice(-4)}`;
     }
 
-    const subcategory = await prisma.category.update({
-      where: { id },
-      data: {
-        name: name.trim(),
-        slug,
-        parentId,
-        description: description !== undefined ? (description?.trim() || null) : undefined,
-        image: image !== undefined ? (image || null) : undefined,
-        publicId: publicId !== undefined ? (publicId || null) : undefined,
-        displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
-        isActive: isActive !== false,
-      },
-      include: {
-        parent: { select: { id: true, name: true, slug: true } },
-        _count: { select: { subProducts: true } },
-      },
+    const subcategory = await updateCategory(id, {
+      name: name.trim(),
+      slug,
+      parentId,
+      description: description !== undefined ? (description?.trim() || null) : undefined,
+      image: image !== undefined ? (image || null) : undefined,
+      publicId: publicId !== undefined ? (publicId || null) : undefined,
+      displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
+      isActive: isActive !== false,
     });
+
+    const parent = await findCategoryById(parentId);
+    subcategory.parent = parent ? { id: parent.id, name: parent.name, slug: parent.slug } as any : null;
+    const prodCount = await countProducts({ subcategoryId: id });
+    subcategory._count = { subProducts: prodCount };
 
     return NextResponse.json({ subcategory });
   } catch (error) {
@@ -73,8 +73,8 @@ export async function DELETE(
     const { id } = await params;
 
     // Check if subcategory has products
-    const productCount = await prisma.product.count({
-      where: { subcategoryId: id },
+    const productCount = await countProducts({
+      subcategoryId: id,
     });
 
     if (productCount > 0) {
@@ -86,9 +86,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.category.delete({
-      where: { id },
-    });
+    await deleteCategory(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

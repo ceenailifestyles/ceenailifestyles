@@ -1,12 +1,12 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findSizes } from "@/lib/repositories/size";
 import SizesClient from "./SizesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSizesPage() {
-  const sizes = await prisma.size.findMany({
-    orderBy: { displayOrder: "asc" },
+  const sizes = await findSizes({
+    displayOrder: "asc",
   });
 
   return (

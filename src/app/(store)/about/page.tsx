@@ -1,5 +1,6 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
@@ -9,15 +10,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
   const [categories, siteSettings] = await Promise.all([
-    prisma.category.findMany({
+    findCategories({
       where: { parentId: null, isActive: true },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: { where: { isActive: true }, orderBy: { displayOrder: "asc" } },
-      },
+      includeChildren: true,
     }),
-    prisma.siteSetting.findMany({
-      where: { key: { in: ["about_ceenai", "footer_settings", "announcement_bar"] } },
+    findSiteSettings({
+      key: { in: ["about_ceenai", "footer_settings", "announcement_bar"] },
     }),
   ]);
 

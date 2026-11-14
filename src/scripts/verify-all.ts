@@ -1,12 +1,19 @@
-import prisma from "../lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
+import { findProducts } from "@/lib/repositories/product";
+import { findUserByEmail } from "@/lib/repositories/user";
+import { findBanners } from "@/lib/repositories/banner";
+import { findCollections } from "@/lib/repositories/collection";
+import { findSiteSettingByKey } from "@/lib/repositories/siteSetting";
+import { createPasswordReset, findPasswordResetByToken } from "@/lib/repositories/passwordReset";
+import { execute, generateId, getPool } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { signToken, verifyToken } from "../lib/auth";
-import { Role } from "@prisma/client";
+import { signToken, verifyToken } from "@/lib/auth";
+import { Role } from "@/lib/types";
 
 async function runTests() {
   console.log("\n========================================================");
-  console.log("CEENAI SYSTEMATIC VERIFICATION & PRODUCTION AUDIT");
+  console.log("CEENAI SYSTEMATIC VERIFICATION & PRODUCTION AUDIT (via mysql2)");
   console.log("========================================================\n");
 
   let passed = 0;
@@ -23,24 +30,24 @@ async function runTests() {
   }
 
   // 1. Database Connection & Categories Check
-  const categories = await prisma.category.findMany({
+  const categories = await findCategories({
     where: { parentId: null },
-    include: { children: true },
+    includeChildren: true,
   });
   assert(categories.length === 7, `7 Primary Categories exist in MySQL (Found: ${categories.length})`);
 
-  const totalSubcategories = categories.reduce((acc, c) => acc + c.children.length, 0);
+  const totalSubcategories = categories.reduce((acc, c) => acc + (c.children?.length || 0), 0);
   assert(totalSubcategories >= 35, `Subcategories seeded correctly in MySQL (Found: ${totalSubcategories})`);
 
   // 2. Products Check
-  const products = await prisma.product.findMany();
+  const products = await findProducts();
   assert(products.length >= 10, `Products exist in MySQL (Found: ${products.length})`);
 
-  const activeProducts = await prisma.product.findMany({ where: { isActive: true } });
+  const activeProducts = await findProducts({ where: { isActive: true } });
   assert(activeProducts.length > 0, `Active products found: ${activeProducts.length}`);
 
   // 3. User Authentication & Password Hashing Check
-  const adminUser = await prisma.user.findUnique({ where: { email: "admin@ceenai.in" } });
+  const adminUser = await findUserByEmail("admin@ceenai.in");
   assert(adminUser !== null, "Admin user exists in database");
   if (adminUser) {
     const isPasswordValid = await bcrypt.compare("Admin@123", adminUser.password);
@@ -62,59 +69,59 @@ async function runTests() {
   // 5. Forgot Password Single-Use & Expiry Token Check
   const testResetToken = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 3600 * 1000);
-  const resetRecord = await prisma.passwordReset.create({
-    data: {
-      email: "priya.sharma@example.com",
-      token: testResetToken,
-      expiresAt,
-    },
-  });
+  const resetRecord = await createPasswordReset("priya.sharma@example.com", testResetToken, expiresAt);
   assert(resetRecord.usedAt === null, "Password reset token created unused");
 
   // Mark token used
-  const updatedReset = await prisma.passwordReset.update({
-    where: { token: testResetToken },
-    data: { usedAt: new Date() },
-  });
-  assert(updatedReset.usedAt !== null, "Password reset token single-use invalidation verified");
+  await execute("UPDATE `password_resets` SET `usedAt` = ? WHERE `token` = ?", [new Date(), testResetToken]);
+  const updatedReset = await findPasswordResetByToken(testResetToken);
+  assert(updatedReset?.usedAt !== null, "Password reset token single-use invalidation verified");
 
   // Cleanup test token
-  await prisma.passwordReset.delete({ where: { token: testResetToken } });
+  await execute("DELETE FROM `password_resets` WHERE `token` = ?", [testResetToken]);
 
   // 6. Collections & Banners Check
-  const banners = await prisma.banner.findMany();
+  const banners = await findBanners();
   assert(banners.length >= 2, `Hero banners configured in MySQL (Found: ${banners.length})`);
 
-  const collections = await prisma.collection.findMany();
+  const collections = await findCollections();
   assert(collections.some((c) => c.slug === "festive-edit"), "Festive Edit collection exists");
   assert(collections.some((c) => c.slug === "new-arrivals"), "New Arrivals collection exists");
 
   // 7. Site Settings Check
-  const announcementSetting = await prisma.siteSetting.findUnique({ where: { key: "announcement_bar" } });
+  const announcementSetting = await findSiteSettingByKey("announcement_bar");
   assert(announcementSetting !== null, "Announcement bar configured in site_settings table");
 
-  const benefitsSetting = await prisma.siteSetting.findUnique({ where: { key: "benefits" } });
+  const benefitsSetting = await findSiteSettingByKey("benefits");
   assert(benefitsSetting !== null, "Shopping benefits configured in site_settings table");
 
-  const aboutSetting = await prisma.siteSetting.findUnique({ where: { key: "about_ceenai" } });
-  assert(aboutSetting !== null, "About CeeneAI configured in site_settings table");
+  const aboutSetting = await findSiteSettingByKey("about_ceenai");
+  assert(aboutSetting !== null, "About Ceenai configured in site_settings table");
 
   // 8. Order Placement & Durable Snapshot Check
   const sampleProduct = products[0];
   const orderNumber = `TEST-${Date.now().toString().slice(-6)}`;
-  const testOrder = await prisma.order.create({
-    data: {
+  const orderId = generateId();
+  const now = new Date();
+  await execute(
+    `INSERT INTO \`orders\` (
+      \`id\`, \`orderNumber\`, \`customerName\`, \`customerEmail\`, \`customerPhone\`,
+      \`shippingAddress\`, \`items\`, \`subtotal\`, \`shippingFee\`, \`discount\`,
+      \`total\`, \`status\`, \`paymentStatus\`, \`paymentMethod\`, \`createdAt\`, \`updatedAt\`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      orderId,
       orderNumber,
-      customerName: "Test Buyer",
-      customerEmail: "buyer@example.com",
-      customerPhone: "9998887770",
-      shippingAddress: {
+      "Test Buyer",
+      "buyer@example.com",
+      "9998887770",
+      JSON.stringify({
         addressLine: "Test Apartment, Malad",
         city: "Mumbai",
         state: "Maharashtra",
         postalCode: "400095",
-      },
-      items: [
+      }),
+      JSON.stringify([
         {
           productId: sampleProduct.id,
           name: sampleProduct.name,
@@ -123,18 +130,22 @@ async function runTests() {
           size: "M",
           color: "Magenta",
         },
-      ],
-      subtotal: sampleProduct.sellingPrice * 2,
-      shippingFee: 0,
-      total: sampleProduct.sellingPrice * 2,
-      status: "CONFIRMED",
-      paymentMethod: "COD",
-    },
-  });
-  assert(testOrder.id !== undefined, `Durable Order snapshot created (#${testOrder.orderNumber})`);
+      ]),
+      sampleProduct.sellingPrice * 2,
+      0,
+      0,
+      sampleProduct.sellingPrice * 2,
+      "CONFIRMED",
+      "PENDING",
+      "COD",
+      now,
+      now,
+    ]
+  );
+  assert(orderId !== undefined, `Durable Order snapshot created (#${orderNumber})`);
 
   // Cleanup test order
-  await prisma.order.delete({ where: { id: testOrder.id } });
+  await execute("DELETE FROM `orders` WHERE `id` = ?", [orderId]);
 
   console.log("\n========================================================");
   console.log(`TOTAL TESTS: ${passed + failed} | PASSED: ${passed} | FAILED: ${failed}`);
@@ -151,6 +162,6 @@ runTests()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    const pool = getPool();
+    await pool.end();
   });
-

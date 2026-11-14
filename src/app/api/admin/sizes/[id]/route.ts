@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { updateSize, deleteSize } from "@/lib/repositories/size";
 import { getAdminSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,9 @@ export async function PUT(
       return NextResponse.json({ error: "Size label is required" }, { status: 400 });
     }
 
-    const size = await prisma.size.update({
-      where: { id },
-      data: {
-        name: name.trim().toUpperCase(),
-        displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
-      },
+    const size = await updateSize(id, {
+      name: name.trim().toUpperCase(),
+      displayOrder: typeof displayOrder === "number" ? displayOrder : 0,
     });
 
     return NextResponse.json({ size });
@@ -49,9 +46,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.size.delete({
-      where: { id },
-    });
+    await deleteSize(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { updateCollection, deleteCollection } from "@/lib/repositories/collection";
 import { getAdminSession } from "@/lib/auth";
 import { collectionSchema, getZodErrorMessage } from "@/lib/validations";
 
@@ -27,29 +27,15 @@ export async function PUT(
     }
 
     const data = validated.data;
-    const updated = await prisma.$transaction(async (tx) => {
-      await tx.collectionProduct.deleteMany({ where: { collectionId: id } });
-      return tx.collection.update({
-        where: { id },
-        data: {
-          title: data.title,
-          slug: data.slug,
-          description: data.description || null,
-          bannerImage: data.bannerImage || null,
-          bannerPublicId: data.bannerPublicId || null,
-          isActive: data.isActive,
-          displayOrder: data.displayOrder,
-          products: {
-            create: data.productIds.map((pId, idx) => ({
-              productId: pId,
-              displayOrder: idx,
-            })),
-          },
-        },
-        include: {
-          products: { include: { product: true } },
-        },
-      });
+    const updated = await updateCollection(id, {
+      title: data.title,
+      slug: data.slug,
+      description: data.description || null,
+      bannerImage: data.bannerImage || null,
+      bannerPublicId: data.bannerPublicId || null,
+      isActive: data.isActive,
+      displayOrder: data.displayOrder,
+      productIds: data.productIds,
     });
 
     return NextResponse.json({ success: true, collection: updated });
@@ -70,7 +56,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    await prisma.collection.delete({ where: { id } });
+    await deleteCollection(id);
 
     return NextResponse.json({ success: true, message: "Collection deleted" });
   } catch (error) {

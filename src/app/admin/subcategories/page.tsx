@@ -1,23 +1,20 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
 import SubcategoriesClient from "./SubcategoriesClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminSubcategoriesPage() {
   const [subcategories, parentCategories] = await Promise.all([
-    prisma.category.findMany({
-      where: { parentId: { not: null } },
+    findCategories({
+      where: { isSubcategory: true },
       orderBy: [{ parentId: "asc" }, { displayOrder: "asc" }],
-      include: {
-        parent: { select: { id: true, name: true, slug: true } },
-        _count: { select: { subProducts: true } },
-      },
+      includeParent: true,
+      includeCounts: true,
     }),
-    prisma.category.findMany({
+    findCategories({
       where: { parentId: null },
       orderBy: { displayOrder: "asc" },
-      select: { id: true, name: true, slug: true },
     }),
   ]);
 
@@ -31,7 +28,7 @@ export default async function AdminSubcategoriesPage() {
       </div>
 
       <SubcategoriesClient
-        initialSubcategories={subcategories}
+        initialSubcategories={subcategories as any}
         parentCategories={parentCategories}
       />
     </div>

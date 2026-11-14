@@ -1,5 +1,9 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findBanners } from "@/lib/repositories/banner";
+import { findCategories } from "@/lib/repositories/category";
+import { findProducts } from "@/lib/repositories/product";
+import { findCollections } from "@/lib/repositories/collection";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
 import HeroBanner from "@/components/store/HeroBanner";
@@ -25,66 +29,48 @@ export default async function HomePage() {
     collections,
     siteSettings,
   ] = await Promise.all([
-    prisma.banner.findMany({
-      where: { isActive: true },
-      orderBy: { displayOrder: "asc" },
-    }),
-    prisma.category.findMany({
+    findBanners({ isActive: true }, { displayOrder: "asc" }),
+    findCategories({
       where: { parentId: null, isActive: true },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
+      includeChildren: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where: { isFeatured: true, isActive: true },
       take: 10,
       orderBy: { createdAt: "desc" },
-      include: {
-        category: { select: { name: true, slug: true } },
-        variants: { select: { id: true, size: true, colorName: true, stock: true } },
-      },
+      includeCategory: true,
+      includeVariants: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where: { isBestSeller: true, isActive: true },
       take: 10,
       orderBy: { createdAt: "desc" },
-      include: {
-        category: { select: { name: true, slug: true } },
-        variants: { select: { id: true, size: true, colorName: true, stock: true } },
-      },
+      includeCategory: true,
+      includeVariants: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where: { isOffer: true, isActive: true },
       take: 10,
       orderBy: { discount: "desc" },
-      include: {
-        category: { select: { name: true, slug: true } },
-        variants: { select: { id: true, size: true, colorName: true, stock: true } },
-      },
+      includeCategory: true,
+      includeVariants: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where: { isActive: true },
       take: 50,
       orderBy: { createdAt: "desc" },
-      include: {
-        category: { select: { name: true, slug: true } },
-        variants: { select: { id: true, size: true, colorName: true, stock: true } },
-      },
+      includeCategory: true,
+      includeVariants: true,
     }),
-    prisma.collection.findMany({
+    findCollections({
       where: { isActive: true },
       take: 2,
       orderBy: { displayOrder: "asc" },
     }),
-    prisma.siteSetting.findMany({
-      where: {
-        key: {
-          in: ["benefits", "announcement_bar", "footer_settings"],
-        },
+    findSiteSettings({
+      key: {
+        in: ["benefits", "announcement_bar", "footer_settings"],
       },
     }),
   ]);

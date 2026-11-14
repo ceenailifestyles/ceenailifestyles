@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
+    const categories = await findCategories({
       where: {
         parentId: null,
         isActive: true,
       },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
+      includeChildren: true,
     });
 
     return NextResponse.json({ categories });

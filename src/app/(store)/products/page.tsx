@@ -1,5 +1,7 @@
 import React from "react";
-import prisma from "@/lib/prisma";
+import { findCategories } from "@/lib/repositories/category";
+import { findProducts } from "@/lib/repositories/product";
+import { findSiteSettings } from "@/lib/repositories/siteSetting";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -48,21 +50,19 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const isOffer = params.offers === "true";
   const isNew = params.new === "true";
 
-  // Build Prisma Where Clause
+  // Build Product Where Clause
   const where: any = { isActive: true };
 
   if (category) {
-    where.category = { slug: category };
+    where.categorySlug = category;
   }
 
   if (subcategory) {
-    where.subcategory = { slug: subcategory };
+    where.subcategorySlug = subcategory;
   }
 
   if (collection) {
-    where.collectionItems = {
-      some: { collection: { slug: collection, isActive: true } },
-    };
+    where.collectionSlug = collection;
   }
 
   if (isOffer) {
@@ -73,14 +73,16 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     where.isNewArrival = true;
   }
 
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    where.sellingPrice = {};
-    if (minPrice !== undefined) where.sellingPrice.gte = minPrice;
-    if (maxPrice !== undefined) where.sellingPrice.lte = maxPrice;
+  if (minPrice !== undefined) {
+    where.minPrice = minPrice;
+  }
+
+  if (maxPrice !== undefined) {
+    where.maxPrice = maxPrice;
   }
 
   if (discount !== undefined) {
-    where.discount = { gte: discount };
+    where.minDiscount = discount;
   }
 
   if (inStock) {
@@ -88,11 +90,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   }
 
   if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { description: { contains: search } },
-      { sku: { contains: search } },
-    ];
+    where.search = search;
   }
 
   let orderBy: any = { createdAt: "desc" };
@@ -101,29 +99,20 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   if (sort === "rating") orderBy = { rating: "desc" };
 
   const [categories, products, siteSettings] = await Promise.all([
-    prisma.category.findMany({
+    findCategories({
       where: { parentId: null, isActive: true },
       orderBy: { displayOrder: "asc" },
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: { displayOrder: "asc" },
-        },
-      },
+      includeChildren: true,
     }),
-    prisma.product.findMany({
+    findProducts({
       where,
       orderBy,
-      include: {
-        category: { select: { name: true, slug: true } },
-        subcategory: { select: { name: true, slug: true } },
-        variants: { select: { id: true, size: true, colorName: true, stock: true } },
-      },
+      includeCategory: true,
+      includeSubcategory: true,
+      includeVariants: true,
     }),
-    prisma.siteSetting.findMany({
-      where: {
-        key: { in: ["announcement_bar", "footer_settings"] },
-      },
+    findSiteSettings({
+      key: { in: ["announcement_bar", "footer_settings"] },
     }),
   ]);
 

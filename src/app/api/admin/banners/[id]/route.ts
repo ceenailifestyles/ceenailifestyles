@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findBannerById, updateBanner, deleteBanner } from "@/lib/repositories/banner";
 import { getAdminSession } from "@/lib/auth";
 import { bannerSchema, getZodErrorMessage } from "@/lib/validations";
 import { deleteFromCloudinary } from "@/lib/cloudinary";
@@ -28,20 +28,17 @@ export async function PUT(
     }
 
     const data = validated.data;
-    const updated = await prisma.banner.update({
-      where: { id },
-      data: {
-        title: data.title,
-        subtitle: data.subtitle || null,
-        desktopImage: data.desktopImage,
-        desktopPublicId: data.desktopPublicId || null,
-        mobileImage: data.mobileImage || null,
-        mobilePublicId: data.mobilePublicId || null,
-        ctaText: data.ctaText,
-        ctaLink: data.ctaLink,
-        displayOrder: data.displayOrder,
-        isActive: data.isActive,
-      },
+    const updated = await updateBanner(id, {
+      title: data.title,
+      subtitle: data.subtitle || null,
+      desktopImage: data.desktopImage,
+      desktopPublicId: data.desktopPublicId || null,
+      mobileImage: data.mobileImage || null,
+      mobilePublicId: data.mobilePublicId || null,
+      ctaText: data.ctaText,
+      ctaLink: data.ctaLink,
+      displayOrder: data.displayOrder,
+      isActive: data.isActive,
     });
 
     return NextResponse.json({ success: true, banner: updated });
@@ -62,11 +59,11 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const banner = await prisma.banner.findUnique({ where: { id } });
+    const banner = await findBannerById(id);
     if (banner) {
       if (banner.desktopPublicId) await deleteFromCloudinary(banner.desktopPublicId);
       if (banner.mobilePublicId) await deleteFromCloudinary(banner.mobilePublicId);
-      await prisma.banner.delete({ where: { id } });
+      await deleteBanner(id);
     }
 
     return NextResponse.json({ success: true, message: "Banner deleted" });
