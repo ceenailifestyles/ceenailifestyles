@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findCategoryById, findFirstCategory, updateCategory, deleteCategory } from "@/lib/repositories/category";
 import { countProducts } from "@/lib/repositories/product";
 import { getAdminSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+import { deleteFromCloudinary } from "@/lib/cloudinary";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,11 @@ export async function PUT(
       );
     }
 
+    const existingSub = await findCategoryById(id);
+    if (!existingSub) {
+      return NextResponse.json({ error: "Subcategory not found" }, { status: 404 });
+    }
+
     let slug = body.slug ? slugify(body.slug) : slugify(name);
     // Check slug collision with other records
     const existing = await findFirstCategory({
@@ -48,10 +55,19 @@ export async function PUT(
       isActive: isActive !== false,
     });
 
+    if (existingSub.publicId && publicId !== undefined && existingSub.publicId !== (publicId || null)) {
+      deleteFromCloudinary(existingSub.publicId).catch((err) => {
+        console.error("Failed to delete replaced subcategory asset:", err);
+      });
+    }
+
     const parent = await findCategoryById(parentId);
     subcategory.parent = parent ? { id: parent.id, name: parent.name, slug: parent.slug } as any : null;
     const prodCount = await countProducts({ subcategoryId: id });
     subcategory._count = { subProducts: prodCount };
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ subcategory });
   } catch (error) {
@@ -71,6 +87,10 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const subcat = await findCategoryById(id);
+    if (!subcat) {
+      return NextResponse.json({ error: "Subcategory not found" }, { status: 404 });
+    }
 
     // Check if subcategory has products
     const productCount = await countProducts({
@@ -87,6 +107,15 @@ export async function DELETE(
     }
 
     await deleteCategory(id);
+
+    if (subcat.publicId) {
+      deleteFromCloudinary(subcat.publicId).catch((err) => {
+        console.error("Failed to delete subcategory asset on delete:", err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true });
   } catch (error) {

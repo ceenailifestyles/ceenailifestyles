@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { getOptimizedImageUrl } from "@/lib/utils";
 
 interface BannerItem {
   id: string;
@@ -44,14 +45,14 @@ export default function HeroBanner({ banners = [] }: { banners?: BannerItem[] })
             {/* Desktop Image */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={b.desktopImage}
+              src={getOptimizedImageUrl(b.desktopImage, { width: 1600 })}
               alt={b.title}
               className="hidden sm:block w-full h-full object-cover object-center"
             />
             {/* Mobile Image */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={b.mobileImage || b.desktopImage}
+              src={getOptimizedImageUrl(b.mobileImage || b.desktopImage, { width: 800 })}
               alt={b.title}
               className="sm:hidden w-full h-full object-cover object-top"
             />

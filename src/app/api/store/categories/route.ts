@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { findCategories } from "@/lib/repositories/category";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 120;
 
 export async function GET() {
   try {

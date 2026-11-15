@@ -22,10 +22,10 @@ export default async function AdminSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div>
-        <h1 className="font-serif text-2xl font-bold text-[#2B1A13]">Website Settings</h1>
-        <p className="text-xs text-[#7A6F68] mt-0.5">
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#2B1A13]">Website Settings</h1>
+        <p className="text-xs text-[#7A6F68] mt-1">
           Configure physical store address, contact lines, announcement messages, and social links.
         </p>
       </div>

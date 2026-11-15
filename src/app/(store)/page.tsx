@@ -15,7 +15,7 @@ import AllProducts from "@/components/store/AllProducts";
 import Newsletter from "@/components/store/Newsletter";
 import Footer from "@/components/layout/Footer";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 120;
 
 export default async function HomePage() {
   // Fetch all real MySQL data concurrently

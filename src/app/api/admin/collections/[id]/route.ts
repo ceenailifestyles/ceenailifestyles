@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
-import { updateCollection, deleteCollection } from "@/lib/repositories/collection";
+import { revalidatePath } from "next/cache";
+import { findCollectionById, updateCollection, deleteCollection } from "@/lib/repositories/collection";
 import { getAdminSession } from "@/lib/auth";
 import { collectionSchema, getZodErrorMessage } from "@/lib/validations";
+import { deleteFromCloudinary } from "@/lib/cloudinary";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,11 @@ export async function PUT(
     }
 
     const data = validated.data;
+    const existing = await findCollectionById(id);
+    if (!existing) {
+      return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+    }
+
     const updated = await updateCollection(id, {
       title: data.title,
       slug: data.slug,
@@ -37,6 +44,15 @@ export async function PUT(
       displayOrder: data.displayOrder,
       productIds: data.productIds,
     });
+
+    if (existing.bannerPublicId && existing.bannerPublicId !== (data.bannerPublicId || null)) {
+      deleteFromCloudinary(existing.bannerPublicId).catch((err) => {
+        console.error(`Failed to delete replaced Cloudinary asset for collection ${id}:`, err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, collection: updated });
   } catch (error) {
@@ -56,7 +72,21 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const existing = await findCollectionById(id);
+    if (!existing) {
+      return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+    }
+
     await deleteCollection(id);
+
+    if (existing.bannerPublicId) {
+      deleteFromCloudinary(existing.bannerPublicId).catch((err) => {
+        console.error(`Failed to delete Cloudinary asset for collection ${id}:`, err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, message: "Collection deleted" });
   } catch (error) {

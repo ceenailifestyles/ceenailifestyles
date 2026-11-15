@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCustomerSession } from "@/lib/auth";
 import { findUserById } from "@/lib/repositories/user";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET() {
     }
 
     const user = await findUserById(session.userId);
-    if (!user) {
+    if (!user || user.role !== Role.CUSTOMER) {
       return NextResponse.json({ user: null });
     }
 

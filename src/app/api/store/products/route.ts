@@ -18,13 +18,40 @@ export async function GET(req: Request) {
     const discount = searchParams.get("discount") ? parseInt(searchParams.get("discount")!, 10) : undefined;
     const search = searchParams.get("search");
     const sort = searchParams.get("sort") || "newest"; // newest, price-asc, price-desc, rating
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "16", 10);
+    const rawPage = parseInt(searchParams.get("page") || "1", 10);
+    const page = isNaN(rawPage) || rawPage < 1 ? 1 : rawPage;
+
+    const rawLimit = parseInt(searchParams.get("limit") || "16", 10);
+    const limit = isNaN(rawLimit) ? 16 : Math.min(48, Math.max(1, rawLimit));
     const skip = (page - 1) * limit;
 
     const where: any = {
       isActive: true,
     };
+
+    const idsParam = searchParams.get("ids");
+    let wishlistIds: string[] | null = null;
+    if (idsParam !== null) {
+      wishlistIds = idsParam
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .slice(0, 50);
+
+      if (wishlistIds.length === 0) {
+        return NextResponse.json({
+          products: [],
+          pagination: {
+            total: 0,
+            page: 1,
+            limit: 50,
+            totalPages: 0,
+          },
+        });
+      }
+
+      where.id = { in: wishlistIds };
+    }
 
     if (category) {
       where.categorySlug = category;
@@ -63,12 +90,15 @@ export async function GET(req: Request) {
     if (sort === "price-desc") orderBy = { sellingPrice: "desc" };
     if (sort === "rating") orderBy = { rating: "desc" };
 
+    const take = wishlistIds ? wishlistIds.length : limit;
+    const effectiveSkip = wishlistIds ? 0 : skip;
+
     const [products, totalCount] = await Promise.all([
       findProducts({
         where,
         orderBy,
-        skip,
-        take: limit,
+        skip: effectiveSkip,
+        take,
         includeCategory: true,
         includeSubcategory: true,
         includeImages: true,
@@ -97,9 +127,9 @@ export async function GET(req: Request) {
       products: filteredProducts,
       pagination: {
         total: totalCount,
-        page,
-        limit,
-        totalPages: Math.ceil(totalCount / limit),
+        page: wishlistIds ? 1 : page,
+        limit: wishlistIds ? take : limit,
+        totalPages: wishlistIds ? 1 : Math.ceil(totalCount / limit),
       },
     });
   } catch (error) {

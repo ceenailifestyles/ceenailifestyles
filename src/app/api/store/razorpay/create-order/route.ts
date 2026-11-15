@@ -1,11 +1,22 @@
 import { NextResponse } from "next/server";
 import { findProductById } from "@/lib/repositories/product";
 import { getRazorpayClient } from "@/lib/razorpay";
+import { getClientIp, rateLimit, createRateLimitResponse } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 10 requests per 15 minutes per IP
+    const clientIp = getClientIp(req);
+    const ipLimit = rateLimit(`create-order-ip:${clientIp}`, 10, 15 * 60 * 1000);
+    if (!ipLimit.success) {
+      return createRateLimitResponse(
+        ipLimit.retryAfterSeconds,
+        "Too many payment initialization requests. Please try again later."
+      );
+    }
+
     const body = await req.json();
     const { items, customer } = body;
 

@@ -20,6 +20,8 @@ interface ProductsPageProps {
     category?: string;
     subcategory?: string;
     collection?: string;
+    bestseller?: string;
+    bestSeller?: string;
     minPrice?: string;
     maxPrice?: string;
     size?: string;
@@ -61,7 +63,13 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     where.subcategorySlug = subcategory;
   }
 
-  if (collection) {
+  if (collection === "best-sellers" || params.bestseller === "true" || params.bestSeller === "true") {
+    where.isBestSeller = true;
+  } else if (collection === "new-arrivals" || isNew) {
+    where.isNewArrival = true;
+  } else if (collection === "festive-edit") {
+    where.isFeatured = true;
+  } else if (collection) {
     where.collectionSlug = collection;
   }
 

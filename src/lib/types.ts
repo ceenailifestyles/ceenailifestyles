@@ -188,6 +188,7 @@ export interface Order {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: string;
+  razorpayPaymentId?: string | null;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;

@@ -28,3 +28,19 @@ export function calculateDiscount(originalPrice: number, sellingPrice: number): 
   return Math.round(((originalPrice - sellingPrice) / originalPrice) * 100);
 }
 
+export function getOptimizedImageUrl(
+  url: string | null | undefined,
+  { width }: { width?: number } = {}
+): string {
+  if (!url || typeof url !== "string") return url || "";
+  if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) {
+    return url;
+  }
+  if (!width) return url;
+  if (url.includes(`/upload/w_${width},c_limit,q_auto,f_auto/`)) {
+    return url;
+  }
+  return url.replace("/upload/", `/upload/w_${width},c_limit,q_auto,f_auto/`);
+}
+
+

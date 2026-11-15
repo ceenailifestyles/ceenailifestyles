@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { getOptimizedImageUrl } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -42,7 +43,7 @@ export default function ShopByCategory({ categories = [] }: { categories?: Categ
                 {cat.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={cat.image}
+                    src={getOptimizedImageUrl(cat.image, { width: 400 })}
                     alt={cat.name}
                     className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   />

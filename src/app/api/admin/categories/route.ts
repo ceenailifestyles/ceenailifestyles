@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findCategories, findCategoryBySlug, createCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { categorySchema, getZodErrorMessage } from "@/lib/validations";
@@ -63,6 +64,9 @@ export async function POST(req: Request) {
       isActive: data.isActive,
       parentId: data.parentId || null,
     });
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, category });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findSiteSettings, upsertSiteSetting } from "@/lib/repositories/siteSetting";
 import { getAdminSession } from "@/lib/auth";
 
@@ -44,6 +45,9 @@ export async function PUT(req: Request) {
     }
 
     const updated = await upsertSiteSetting(key, value);
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, setting: updated });
   } catch (error) {

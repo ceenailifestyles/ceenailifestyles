@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { getOptimizedImageUrl } from "@/lib/utils";
 
 interface CollectionItem {
   id: string;
@@ -71,7 +72,7 @@ export default function PromoBanners({ collections = [] }: { collections?: Colle
                 <div className="w-[45%] absolute right-0 top-0 bottom-0 overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={col.bannerImage || col.image || ""}
+                    src={getOptimizedImageUrl(col.bannerImage || col.image || "", { width: 1600 })}
                     alt={col.title || col.name || "Collection"}
                     className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                   />

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findCollections, findCollectionBySlug, createCollection } from "@/lib/repositories/collection";
 import { getAdminSession } from "@/lib/auth";
 import { collectionSchema, getZodErrorMessage } from "@/lib/validations";
@@ -61,6 +62,9 @@ export async function POST(req: Request) {
       displayOrder: data.displayOrder,
       productIds: data.productIds,
     });
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, collection });
   } catch (error) {

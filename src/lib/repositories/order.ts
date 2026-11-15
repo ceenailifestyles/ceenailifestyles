@@ -18,6 +18,7 @@ function mapOrder(row: any): Order {
     status: row.status as OrderStatus,
     paymentStatus: row.paymentStatus as PaymentStatus,
     paymentMethod: row.paymentMethod || "COD",
+    razorpayPaymentId: row.razorpayPaymentId || null,
     notes: row.notes,
     createdAt: toDate(row.createdAt),
     updatedAt: toDate(row.updatedAt),
@@ -162,6 +163,7 @@ export async function createOrderWithStockUpdate(data: {
   paymentMethod?: string;
   paymentStatus?: PaymentStatus;
   status?: OrderStatus;
+  razorpayPaymentId?: string | null;
   notes?: string | null;
 }): Promise<Order> {
   return await transaction(async (conn) => {
@@ -230,8 +232,8 @@ export async function createOrderWithStockUpdate(data: {
       `INSERT INTO \`orders\` (
         \`id\`, \`orderNumber\`, \`userId\`, \`customerName\`, \`customerEmail\`, \`customerPhone\`,
         \`shippingAddress\`, \`items\`, \`subtotal\`, \`shippingFee\`, \`discount\`, \`total\`,
-        \`status\`, \`paymentStatus\`, \`paymentMethod\`, \`notes\`, \`createdAt\`, \`updatedAt\`
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        \`status\`, \`paymentStatus\`, \`paymentMethod\`, \`razorpayPaymentId\`, \`notes\`, \`createdAt\`, \`updatedAt\`
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         data.orderNumber,
@@ -248,6 +250,7 @@ export async function createOrderWithStockUpdate(data: {
         data.status || OrderStatus.PENDING,
         data.paymentStatus || PaymentStatus.PENDING,
         data.paymentMethod || "COD",
+        data.razorpayPaymentId || null,
         data.notes || null,
         now,
         now,

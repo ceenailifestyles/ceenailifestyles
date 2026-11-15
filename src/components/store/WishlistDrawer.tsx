@@ -4,10 +4,10 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/context/StoreContext";
 import { X, Heart, Trash2, ShoppingBag } from "lucide-react";
-import { formatINR } from "@/lib/utils";
+import { formatINR, getOptimizedImageUrl } from "@/lib/utils";
 import ProductCard from "@/components/store/ProductCard";
 
-let cachedWishlistProducts: any[] | null = null;
+let cachedRecommendations: any[] | null = null;
 
 export default function WishlistDrawer() {
   const {
@@ -19,24 +19,26 @@ export default function WishlistDrawer() {
     wishlistCount,
   } = useStore();
 
-  const [allProducts, setAllProducts] = useState<any[]>(cachedWishlistProducts || []);
+  const [wishlistProducts, setWishlistProducts] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>(cachedRecommendations || []);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isWishlistOpen) return;
-    if (cachedWishlistProducts && cachedWishlistProducts.length > 0) {
-      setAllProducts(cachedWishlistProducts);
+    if (wishlist.length === 0) {
+      setWishlistProducts([]);
+      setLoading(false);
       return;
     }
 
     let active = true;
     setLoading(true);
-    fetch("/api/store/products?limit=100")
+    const ids = wishlist.slice(0, 50).join(",");
+    fetch(`/api/store/products?ids=${encodeURIComponent(ids)}`)
       .then((res) => res.json())
       .then((data) => {
         if (active && Array.isArray(data.products)) {
-          cachedWishlistProducts = data.products;
-          setAllProducts(data.products);
+          setWishlistProducts(data.products);
         }
       })
       .catch((err) => console.error("Wishlist drawer fetch error:", err))
@@ -47,15 +49,38 @@ export default function WishlistDrawer() {
     return () => {
       active = false;
     };
+  }, [isWishlistOpen, wishlist]);
+
+  useEffect(() => {
+    if (!isWishlistOpen) return;
+    if (cachedRecommendations && cachedRecommendations.length > 0) {
+      setRecommendations(cachedRecommendations);
+      return;
+    }
+
+    let active = true;
+    fetch("/api/store/products?limit=10")
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && Array.isArray(data.products)) {
+          cachedRecommendations = data.products;
+          setRecommendations(data.products);
+        }
+      })
+      .catch((err) => console.error("Wishlist drawer recommendations fetch error:", err));
+
+    return () => {
+      active = false;
+    };
   }, [isWishlistOpen]);
 
   if (!isWishlistOpen) return null;
 
-  const wishlistedProducts = allProducts.filter((p) => wishlist.includes(p.id));
+  const wishlistedProducts = wishlistProducts.filter((p) => wishlist.includes(p.id));
   const sliderProducts =
-    allProducts.filter((p) => !wishlist.includes(p.id)).length > 0
-      ? allProducts.filter((p) => !wishlist.includes(p.id)).slice(0, 10)
-      : allProducts.slice(0, 10);
+    recommendations.filter((p) => !wishlist.includes(p.id)).length > 0
+      ? recommendations.filter((p) => !wishlist.includes(p.id)).slice(0, 10)
+      : recommendations.slice(0, 10);
   const marqueeItems =
     sliderProducts.length > 0 ? [...sliderProducts, ...sliderProducts] : [];
 
@@ -148,7 +173,7 @@ export default function WishlistDrawer() {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={item.mainImage}
+                    src={getOptimizedImageUrl(item.mainImage, { width: 400 })}
                     alt={item.name}
                     className="w-full h-full object-cover"
                   />

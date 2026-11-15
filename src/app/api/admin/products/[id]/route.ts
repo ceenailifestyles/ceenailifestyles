@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import {
   findProductById,
   findFirstProduct,
@@ -63,6 +64,15 @@ export async function PUT(
 
     const data = validated.data;
 
+    // Load existing product and its images before updating
+    const existing = await findProductById(id, {
+      includeImages: true,
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
     // Check slug collision
     const existingSlug = await findFirstProduct({
       slug: data.slug,
@@ -110,6 +120,40 @@ export async function PUT(
       variants: data.variants,
     });
 
+    // After the update succeeds, call deleteFromCloudinary for every publicId that was removed or replaced
+    const remainingPublicIds = new Set<string>();
+    if (data.mainImageId) {
+      remainingPublicIds.add(data.mainImageId);
+    }
+    if (Array.isArray(data.galleryImages)) {
+      for (const img of data.galleryImages) {
+        if (img.publicId) {
+          remainingPublicIds.add(img.publicId);
+        }
+      }
+    }
+
+    const removedPublicIds = new Set<string>();
+    if (existing.mainImageId && !remainingPublicIds.has(existing.mainImageId)) {
+      removedPublicIds.add(existing.mainImageId);
+    }
+    if (Array.isArray(existing.images)) {
+      for (const img of existing.images) {
+        if (img.publicId && !remainingPublicIds.has(img.publicId)) {
+          removedPublicIds.add(img.publicId);
+        }
+      }
+    }
+
+    for (const pid of removedPublicIds) {
+      deleteFromCloudinary(pid).catch((err) => {
+        console.error(`Failed to delete Cloudinary asset ${pid}:`, err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
+
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {
     console.error("Admin product PUT error:", error);
@@ -149,6 +193,9 @@ export async function DELETE(
     }
 
     await deleteProduct(id);
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true });
   } catch (error) {

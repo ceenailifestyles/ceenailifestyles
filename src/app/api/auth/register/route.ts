@@ -4,11 +4,22 @@ import { hashPassword, signToken, CUSTOMER_COOKIE_NAME } from "@/lib/auth";
 import { customerRegisterSchema, getZodErrorMessage } from "@/lib/validations";
 import { sendWelcomeEmail } from "@/lib/email";
 import { Role } from "@/lib/types";
+import { getClientIp, rateLimit, createRateLimitResponse } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: 5 requests per 15 minutes per IP
+    const clientIp = getClientIp(req);
+    const ipLimit = rateLimit(`register-ip:${clientIp}`, 5, 15 * 60 * 1000);
+    if (!ipLimit.success) {
+      return createRateLimitResponse(
+        ipLimit.retryAfterSeconds,
+        "Too many registration attempts. Please try again later."
+      );
+    }
+
     const body = await req.json();
     const validated = customerRegisterSchema.safeParse(body);
 

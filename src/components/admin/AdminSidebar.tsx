@@ -51,7 +51,6 @@ export default function AdminSidebar({ session, onNavClick }: AdminSidebarProps)
     { label: "Subcategories", href: "/admin/subcategories", icon: Split },
     { label: "Colors", href: "/admin/colors", icon: Palette },
     { label: "Sizes", href: "/admin/sizes", icon: Ruler },
-    { label: "Collections", href: "/admin/collections", icon: Layers },
     { label: "Hero Banners", href: "/admin/banners", icon: Image },
     { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
     { label: "Customers", href: "/admin/customers", icon: Users },

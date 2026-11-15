@@ -22,14 +22,7 @@ export default async function AdminContentPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-serif text-2xl font-bold text-[#2B1A13]">Website Content CMS</h1>
-        <p className="text-xs text-[#7A6F68] mt-0.5">
-          Manage shopping benefits, brand story & pillars.
-        </p>
-      </div>
-
+    <div className="w-full">
       <ContentClient initialContent={contentMap} />
     </div>
   );

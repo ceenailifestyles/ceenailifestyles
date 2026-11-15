@@ -16,14 +16,19 @@ export default function WishlistPage() {
 
   useEffect(() => {
     async function loadWishlistProducts() {
+      if (wishlist.length === 0) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const res = await fetch("/api/store/products?limit=100");
+        setLoading(true);
+        const ids = wishlist.slice(0, 50).join(",");
+        const res = await fetch(`/api/store/products?ids=${encodeURIComponent(ids)}`);
         const data = await res.json();
-        if (data.products) {
-          const wishlistedOnes = data.products.filter((p: any) =>
-            wishlist.includes(p.id)
-          );
-          setProducts(wishlistedOnes);
+        if (Array.isArray(data.products)) {
+          setProducts(data.products);
         }
       } catch (e) {
         console.error("Wishlist load error", e);

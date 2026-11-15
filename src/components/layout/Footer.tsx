@@ -160,18 +160,13 @@ export default function Footer({ categories = [], settings }: FooterProps) {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/shipping-and-returns" className="hover:text-white transition-colors">
+                    Shipping & Returns
+                  </Link>
+                </li>
+                <li>
                   <Link href="/profile" className="hover:text-white transition-colors">
-                    Returns & Refunds
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
-                    Shipping Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
-                    FAQs & Support
+                    My Account
                   </Link>
                 </li>
               </ul>
@@ -195,23 +190,18 @@ export default function Footer({ categories = [], settings }: FooterProps) {
             <div className={`${openSections.policies ? "block" : "hidden"} md:block pt-2 md:pt-3`}>
               <ul className="space-y-2 text-xs text-[#F7E7CE]/70">
                 <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
+                  <Link href="/privacy-policy" className="hover:text-white transition-colors">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
+                  <Link href="/terms-and-conditions" className="hover:text-white transition-colors">
                     Terms & Conditions
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
-                    Return Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="hover:text-white transition-colors">
-                    Cancellation Policy
+                  <Link href="/shipping-and-returns" className="hover:text-white transition-colors">
+                    Return & Shipping Policy
                   </Link>
                 </li>
               </ul>

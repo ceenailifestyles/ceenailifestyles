@@ -50,7 +50,12 @@ export async function getCustomerSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(CUSTOMER_COOKIE_NAME)?.value;
   if (!token) return null;
-  return verifyToken(token);
+  const decoded = verifyToken(token);
+  if (!decoded) return null;
+  if (decoded.role !== Role.CUSTOMER) {
+    return null;
+  }
+  return decoded;
 }
 
 export async function getAdminSession(): Promise<SessionPayload | null> {
@@ -65,6 +70,14 @@ export async function getAdminSession(): Promise<SessionPayload | null> {
   return decoded;
 }
 
+export async function requireCustomer(): Promise<SessionPayload> {
+  const session = await getCustomerSession();
+  if (!session) {
+    throw new Error("UNAUTHORIZED_CUSTOMER");
+  }
+  return session;
+}
+
 export async function requireAdmin(): Promise<SessionPayload> {
   const session = await getAdminSession();
   if (!session) {
@@ -77,7 +90,7 @@ export async function getCurrentUser() {
   const session = await getCustomerSession();
   if (!session) return null;
   const user = await findUserById(session.userId);
-  if (!user) return null;
+  if (!user || user.role !== Role.CUSTOMER) return null;
   return {
     id: user.id,
     name: user.name,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findBannerById, updateBanner, deleteBanner } from "@/lib/repositories/banner";
 import { getAdminSession } from "@/lib/auth";
 import { bannerSchema, getZodErrorMessage } from "@/lib/validations";
@@ -28,6 +29,11 @@ export async function PUT(
     }
 
     const data = validated.data;
+    const existing = await findBannerById(id);
+    if (!existing) {
+      return NextResponse.json({ error: "Banner not found" }, { status: 404 });
+    }
+
     const updated = await updateBanner(id, {
       title: data.title,
       subtitle: data.subtitle || null,
@@ -40,6 +46,20 @@ export async function PUT(
       displayOrder: data.displayOrder,
       isActive: data.isActive,
     });
+
+    if (existing.desktopPublicId && existing.desktopPublicId !== (data.desktopPublicId || null)) {
+      deleteFromCloudinary(existing.desktopPublicId).catch((err) => {
+        console.error("Failed to delete replaced desktop banner asset:", err);
+      });
+    }
+    if (existing.mobilePublicId && existing.mobilePublicId !== (data.mobilePublicId || null)) {
+      deleteFromCloudinary(existing.mobilePublicId).catch((err) => {
+        console.error("Failed to delete replaced mobile banner asset:", err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, banner: updated });
   } catch (error) {
@@ -60,11 +80,25 @@ export async function DELETE(
 
     const { id } = await params;
     const banner = await findBannerById(id);
-    if (banner) {
-      if (banner.desktopPublicId) await deleteFromCloudinary(banner.desktopPublicId);
-      if (banner.mobilePublicId) await deleteFromCloudinary(banner.mobilePublicId);
-      await deleteBanner(id);
+    if (!banner) {
+      return NextResponse.json({ error: "Banner not found" }, { status: 404 });
     }
+
+    await deleteBanner(id);
+
+    if (banner.desktopPublicId) {
+      deleteFromCloudinary(banner.desktopPublicId).catch((err) => {
+        console.error("Failed to delete desktop banner asset on delete:", err);
+      });
+    }
+    if (banner.mobilePublicId) {
+      deleteFromCloudinary(banner.mobilePublicId).catch((err) => {
+        console.error("Failed to delete mobile banner asset on delete:", err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, message: "Banner deleted" });
   } catch (error) {

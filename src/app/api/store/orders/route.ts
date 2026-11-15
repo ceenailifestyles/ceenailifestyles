@@ -28,6 +28,10 @@ export async function POST(req: Request) {
     }
 
     const cust = validatedCustomer.data;
+    const paymentId =
+      cust.paymentMethod === "ONLINE"
+        ? razorpayPayment?.razorpay_payment_id
+        : null;
 
     // Verify online payment authenticity via Razorpay HMAC signature
     if (cust.paymentMethod === "ONLINE") {
@@ -53,6 +57,19 @@ export async function POST(req: Request) {
         return NextResponse.json(
           { error: "Payment verification failed. Invalid transaction signature." },
           { status: 400 }
+        );
+      }
+
+      // Check if payment id was already used before proceeding
+      const pool = getPool();
+      const [existingOrderRows] = await pool.query(
+        "SELECT `id` FROM `orders` WHERE `razorpayPaymentId` = ? LIMIT 1",
+        [paymentId]
+      );
+      if (Array.isArray(existingOrderRows) && existingOrderRows.length > 0) {
+        return NextResponse.json(
+          { error: "Payment ID has already been used for an order." },
+          { status: 409 }
         );
       }
     }
@@ -150,6 +167,21 @@ export async function POST(req: Request) {
     try {
       await conn.beginTransaction();
 
+      // Check payment id inside transaction lock to prevent concurrent race condition replay
+      if (paymentId) {
+        const [existingPaymentRows] = await conn.query(
+          "SELECT `id` FROM `orders` WHERE `razorpayPaymentId` = ? FOR UPDATE",
+          [paymentId]
+        );
+        if (Array.isArray(existingPaymentRows) && existingPaymentRows.length > 0) {
+          await conn.rollback();
+          return NextResponse.json(
+            { error: "Payment ID has already been used for an order." },
+            { status: 409 }
+          );
+        }
+      }
+
       // 1. Lock and decrement stock atomically (UPDATE ... SET stock = stock - ? WHERE id = ? AND stock >= ?)
       for (const itm of durableItems) {
         const [prodRes] = await conn.execute(
@@ -187,8 +219,8 @@ export async function POST(req: Request) {
           \`id\`, \`orderNumber\`, \`userId\`, \`customerName\`, \`customerEmail\`,
           \`customerPhone\`, \`shippingAddress\`, \`items\`, \`subtotal\`, \`shippingFee\`,
           \`discount\`, \`total\`, \`status\`, \`paymentStatus\`, \`paymentMethod\`,
-          \`notes\`, \`createdAt\`, \`updatedAt\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          \`razorpayPaymentId\`, \`notes\`, \`createdAt\`, \`updatedAt\`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           orderNumber,
@@ -210,6 +242,7 @@ export async function POST(req: Request) {
           "CONFIRMED",
           cust.paymentMethod === "ONLINE" ? "PAID" : "PENDING",
           cust.paymentMethod,
+          paymentId || null,
           cust.notes || null,
           now,
           now,
@@ -217,8 +250,17 @@ export async function POST(req: Request) {
       );
 
       await conn.commit();
-    } catch (txError) {
+    } catch (txError: any) {
       await conn.rollback();
+      if (
+        txError?.code === "ER_DUP_ENTRY" &&
+        (typeof txError?.message === "string" && txError.message.includes("razorpayPaymentId"))
+      ) {
+        return NextResponse.json(
+          { error: "Payment ID has already been used for an order." },
+          { status: 409 }
+        );
+      }
       throw txError;
     } finally {
       conn.release();

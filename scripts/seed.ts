@@ -1,24 +1,47 @@
-import { execute, generateId, getPool } from "@/lib/db";
+import { query, execute, generateId, getPool } from "@/lib/db";
 import { Role } from "@/lib/types";
 import bcrypt from "bcryptjs";
 
 async function main() {
   console.log("Seeding database for Ceenai (via pure mysql2)...");
 
-  // 1. Clean existing records safely in order of foreign key dependencies
-  await execute("DELETE FROM `collection_products`");
-  await execute("DELETE FROM `collections`");
-  await execute("DELETE FROM `product_images`");
-  await execute("DELETE FROM `product_variants`");
-  await execute("DELETE FROM `wishlists`");
-  await execute("DELETE FROM `orders`");
-  await execute("DELETE FROM `carts`");
-  await execute("DELETE FROM `products`");
-  await execute("DELETE FROM `categories`");
-  await execute("DELETE FROM `banners`");
-  await execute("DELETE FROM `site_settings`");
-  await execute("DELETE FROM `password_resets`");
-  await execute("DELETE FROM `users`");
+  const isReset = process.argv.includes("--reset");
+
+  // Safety: run delete step only when script is called with --reset flag.
+  // Without the flag, script only inserts and stops with a message if categories already has rows.
+  if (!isReset) {
+    const existing = await query("SELECT COUNT(*) as count FROM `categories`");
+    const count = Number(existing[0]?.count || 0);
+    if (count > 0) {
+      console.log(
+        `Database already contains data (${count} categories found). Seeding aborted.\n` +
+        "To clear all existing records and re-seed from scratch, run:\n" +
+        "  pnpm run seed -- --reset"
+      );
+      return;
+    }
+  } else {
+    console.log("Reset flag detected. Cleaning existing records in dependency order (children first, then parents)...");
+    await execute("SET FOREIGN_KEY_CHECKS = 0");
+    await execute("DELETE FROM `collection_products`");
+    await execute("DELETE FROM `collections`");
+    await execute("DELETE FROM `product_images`");
+    await execute("DELETE FROM `product_variants`");
+    await execute("DELETE FROM `wishlists`");
+    await execute("DELETE FROM `orders`");
+    await execute("DELETE FROM `carts`");
+    await execute("DELETE FROM `products`");
+    await execute("DELETE FROM `categories` WHERE `parentId` IS NOT NULL");
+    await execute("DELETE FROM `categories`");
+    await execute("DELETE FROM `banners`");
+    await execute("DELETE FROM `colors`");
+    await execute("DELETE FROM `sizes`");
+    await execute("DELETE FROM `site_settings`");
+    await execute("DELETE FROM `password_resets`");
+    await execute("DELETE FROM `users`");
+    await execute("SET FOREIGN_KEY_CHECKS = 1");
+    console.log("Existing records cleaned successfully.");
+  }
 
   const now = new Date();
 
@@ -257,7 +280,70 @@ async function main() {
     [newArrivalsColId, "New Arrivals", "new-arrivals", "The latest styles, just for you.", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=80", 3, 1, now, now]
   );
 
-  // 6. Create Products
+  // 6. Create Standalone Colors & Sizes (from product catalog)
+  const colorsData = [
+    { name: "Plum Magenta", hex: "#8B1E4B" },
+    { name: "Deep Teal", hex: "#005F73" },
+    { name: "Peach Floral", hex: "#F4A261" },
+    { name: "Powder Blue", hex: "#B0E0E6" },
+    { name: "Dusty Pink", hex: "#D8A47F" },
+    { name: "Midnight Navy", hex: "#1B263B" },
+    { name: "Bottle Green", hex: "#097969" },
+    { name: "Beige Oatmeal", hex: "#E3D5CA" },
+    { name: "Gold & Pearl", hex: "#E5C158" },
+    { name: "Champagne Cream", hex: "#F7E7CE" },
+    { name: "Soft Rose", hex: "#F2C6C2" },
+    { name: "Wine Red", hex: "#722F37" },
+    { name: "Classic Black", hex: "#1A1A1A" },
+    { name: "Lavender Floral", hex: "#C3B1E1" },
+    { name: "Mint Blossom", hex: "#98FF98" },
+    { name: "Rose Mauve", hex: "#996666" },
+    { name: "Nude Almond", hex: "#EED9C4" },
+    { name: "Black", hex: "#000000" },
+    { name: "Warm Beige", hex: "#D4B996" },
+    { name: "Tan Camel", hex: "#C19A6B" },
+    { name: "Golden Amber", hex: "#FFBF00" },
+    { name: "Natural White", hex: "#F8F9FA" },
+  ];
+
+  for (const c of colorsData) {
+    const colorId = generateId();
+    await execute(
+      "INSERT INTO `colors` (`id`, `name`, `hex`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?)",
+      [colorId, c.name, c.hex, now, now]
+    );
+  }
+  console.log(`Colors seeded: ${colorsData.length} swatches created.`);
+
+  const sizesData = [
+    { name: "XS", displayOrder: 1 },
+    { name: "S", displayOrder: 2 },
+    { name: "M", displayOrder: 3 },
+    { name: "L", displayOrder: 4 },
+    { name: "XL", displayOrder: 5 },
+    { name: "XXL", displayOrder: 6 },
+    { name: "Free Size", displayOrder: 7 },
+    { name: "Medium", displayOrder: 8 },
+    { name: "32B", displayOrder: 9 },
+    { name: "34B", displayOrder: 10 },
+    { name: "34C", displayOrder: 11 },
+    { name: "36B", displayOrder: 12 },
+    { name: "36C", displayOrder: 13 },
+    { name: "38C", displayOrder: 14 },
+    { name: "100ml", displayOrder: 15 },
+    { name: "XL (Pack of 20)", displayOrder: 16 },
+  ];
+
+  for (const s of sizesData) {
+    const sizeId = generateId();
+    await execute(
+      "INSERT INTO `sizes` (`id`, `name`, `displayOrder`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?)",
+      [sizeId, s.name, s.displayOrder, now, now]
+    );
+  }
+  console.log(`Sizes seeded: ${sizesData.length} size options created.`);
+
+  // 7. Create Products
   const productsData = [
     {
       name: "Embroidered A-Line Kurti",
@@ -730,8 +816,8 @@ async function main() {
   for (const s of siteSettings) {
     const sId = generateId();
     await execute(
-      "INSERT INTO `site_settings` (`id`, `key`, `value`, `createdAt`, `updatedAt`) VALUES (?, ?, ?, ?, ?)",
-      [sId, s.key, JSON.stringify(s.value), now, now]
+      "INSERT INTO `site_settings` (`id`, `key`, `value`, `updatedAt`) VALUES (?, ?, ?, ?)",
+      [sId, s.key, JSON.stringify(s.value), now]
     );
   }
 

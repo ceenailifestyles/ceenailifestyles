@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { Tag, ArrowRight } from "lucide-react";
+import { getOptimizedImageUrl } from "@/lib/utils";
 
 interface ShopBannerProps {
   category?: {
@@ -82,7 +83,7 @@ export default function ShopBanner({
       <div className="relative h-44 sm:h-56 md:h-64 lg:h-72 w-full overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={bannerImage}
+          src={getOptimizedImageUrl(bannerImage, { width: 1600 })}
           alt={bannerTitle}
           className="w-full h-full object-cover object-center transform scale-100 transition-transform duration-700 ease-out"
         />

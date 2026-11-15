@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth";
 import { findUserById } from "@/lib/repositories/user";
+import { Role } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET() {
     }
 
     const admin = await findUserById(session.userId);
-    if (!admin) {
+    if (!admin || (admin.role !== Role.ADMIN && admin.role !== Role.SUPER_ADMIN)) {
       return NextResponse.json({ admin: null }, { status: 401 });
     }
 

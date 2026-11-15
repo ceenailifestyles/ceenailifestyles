@@ -303,6 +303,7 @@ export async function countProducts(where?: {
   discount?: { gte?: number };
   search?: string;
   stock?: { gt?: number; lte?: number };
+  id?: { in?: string[] };
 }): Promise<number> {
   const conditions: string[] = [];
   const params: any[] = [];
@@ -368,6 +369,12 @@ export async function countProducts(where?: {
     if (where.stock?.lte !== undefined) {
       conditions.push("`stock` <= ?");
       params.push(where.stock.lte);
+    }
+    if (where.id?.in !== undefined) {
+      if (where.id.in.length === 0) return 0;
+      const inPlaceholders = where.id.in.map(() => "?").join(",");
+      conditions.push(`\`id\` IN (${inPlaceholders})`);
+      params.push(...where.id.in);
     }
     if (where.search) {
       conditions.push("(`name` LIKE ? OR `description` LIKE ? OR `shortDescription` LIKE ? OR `sku` LIKE ?)");

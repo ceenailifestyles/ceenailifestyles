@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findCategories, findCategoryById, findCategoryBySlug, createCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
@@ -74,6 +75,9 @@ export async function POST(req: Request) {
 
     subcategory.parent = { id: parent.id, name: parent.name, slug: parent.slug } as any;
     subcategory._count = { subProducts: 0 };
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ subcategory }, { status: 201 });
   } catch (error) {

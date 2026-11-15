@@ -82,8 +82,8 @@ export default function AdminLayoutShell({
           </div>
         </header>
 
-        {/* Page Content with top padding matching fixed h-16 header */}
-        <main className="pt-20 p-4 sm:p-8 flex-1">{children}</main>
+        {/* Page Content with top padding matching fixed h-16 header without shorthand collisions */}
+        <main className="pt-20 sm:pt-24 px-4 sm:px-8 pb-8 flex-1">{children}</main>
       </div>
     </div>
   );

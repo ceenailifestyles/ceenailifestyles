@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { findCategoryById, findFirstCategory, updateCategory, deleteCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { categorySchema, getZodErrorMessage } from "@/lib/validations";
@@ -28,12 +29,17 @@ export async function PUT(
     }
 
     const data = validated.data;
-    const existing = await findFirstCategory({
+    const existingCat = await findCategoryById(id);
+    if (!existingCat) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    const existingSlug = await findFirstCategory({
       slug: data.slug,
       NOT: { id },
     });
 
-    if (existing) {
+    if (existingSlug) {
       return NextResponse.json(
         { error: "Another category with this slug exists" },
         { status: 409 }
@@ -50,6 +56,15 @@ export async function PUT(
       isActive: data.isActive,
       parentId: data.parentId || null,
     });
+
+    if (existingCat.publicId && existingCat.publicId !== (data.publicId || null)) {
+      deleteFromCloudinary(existingCat.publicId).catch((err) => {
+        console.error("Failed to delete replaced category asset:", err);
+      });
+    }
+
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, category: updated });
   } catch (error) {
@@ -83,11 +98,16 @@ export async function DELETE(
       );
     }
 
+    await deleteCategory(id);
+
     if (cat.publicId) {
-      await deleteFromCloudinary(cat.publicId);
+      deleteFromCloudinary(cat.publicId).catch((err) => {
+        console.error("Failed to delete category asset on delete:", err);
+      });
     }
 
-    await deleteCategory(id);
+    revalidatePath("/");
+    revalidatePath("/products");
 
     return NextResponse.json({ success: true, message: "Category deleted" });
   } catch (error) {

@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useStore } from "@/context/StoreContext";
 import { Heart, ShoppingBag } from "lucide-react";
-import { formatINR } from "@/lib/utils";
+import { formatINR, getOptimizedImageUrl } from "@/lib/utils";
 
 export interface ProductCardData {
   id: string;
@@ -110,7 +110,7 @@ export default function ProductCard({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={product.mainImage}
+            src={getOptimizedImageUrl(product.mainImage, { width: 400 })}
             alt={product.name}
             className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
           />
