@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findProducts, findProductBySlug, createProduct } from "@/lib/repositories/product";
 import { getAdminSession } from "@/lib/auth";
 import { productSchema, getZodErrorMessage } from "@/lib/validations";
@@ -103,6 +103,8 @@ export async function POST(req: Request) {
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("products", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, product: result }, { status: 201 });
   } catch (error) {

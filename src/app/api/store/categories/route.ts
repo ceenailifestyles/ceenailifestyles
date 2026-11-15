@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
-import { findCategories } from "@/lib/repositories/category";
+import { getCachedCategories } from "@/lib/cachedStorefront";
 
-export const revalidate = 120;
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const categories = await findCategories({
-      where: {
-        parentId: null,
-        isActive: true,
-      },
-      orderBy: { displayOrder: "asc" },
-      includeChildren: true,
-    });
+    const categories = await getCachedCategories();
 
     return NextResponse.json({ categories });
   } catch (error) {

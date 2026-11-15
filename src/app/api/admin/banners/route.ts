@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findBanners, createBanner } from "@/lib/repositories/banner";
 import { getAdminSession } from "@/lib/auth";
 import { bannerSchema, getZodErrorMessage } from "@/lib/validations";
@@ -55,6 +55,8 @@ export async function POST(req: Request) {
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("banners", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, banner });
   } catch (error) {

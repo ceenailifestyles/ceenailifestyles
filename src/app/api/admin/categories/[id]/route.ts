@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findCategoryById, findFirstCategory, updateCategory, deleteCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { categorySchema, getZodErrorMessage } from "@/lib/validations";
@@ -65,6 +65,8 @@ export async function PUT(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("categories", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, category: updated });
   } catch (error) {
@@ -108,6 +110,8 @@ export async function DELETE(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("categories", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, message: "Category deleted" });
   } catch (error) {

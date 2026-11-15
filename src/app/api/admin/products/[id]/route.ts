@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   findProductById,
   findFirstProduct,
@@ -153,6 +153,8 @@ export async function PUT(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("products", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {
@@ -196,6 +198,8 @@ export async function DELETE(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("products", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -33,6 +33,8 @@ export async function POST(req: Request) {
         ? razorpayPayment?.razorpay_payment_id
         : null;
 
+    const pool = getPool();
+
     // Verify online payment authenticity via Razorpay HMAC signature
     if (cust.paymentMethod === "ONLINE") {
       if (
@@ -61,7 +63,6 @@ export async function POST(req: Request) {
       }
 
       // Check if payment id was already used before proceeding
-      const pool = getPool();
       const [existingOrderRows] = await pool.query(
         "SELECT `id` FROM `orders` WHERE `razorpayPaymentId` = ? LIMIT 1",
         [paymentId]
@@ -161,7 +162,6 @@ export async function POST(req: Request) {
     const now = new Date();
     const orderId = generateId();
 
-    const pool = getPool();
     const conn = await pool.getConnection();
 
     try {

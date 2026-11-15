@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findSiteSettings, upsertSiteSetting } from "@/lib/repositories/siteSetting";
 import { getAdminSession } from "@/lib/auth";
 
@@ -48,6 +48,8 @@ export async function PUT(req: Request) {
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("settings", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, setting: updated });
   } catch (error) {

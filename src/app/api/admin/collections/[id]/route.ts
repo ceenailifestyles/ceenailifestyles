@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findCollectionById, updateCollection, deleteCollection } from "@/lib/repositories/collection";
 import { getAdminSession } from "@/lib/auth";
 import { collectionSchema, getZodErrorMessage } from "@/lib/validations";
@@ -53,6 +53,8 @@ export async function PUT(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("collections", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, collection: updated });
   } catch (error) {
@@ -87,6 +89,8 @@ export async function DELETE(
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("collections", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ success: true, message: "Collection deleted" });
   } catch (error) {

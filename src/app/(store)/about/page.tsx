@@ -1,24 +1,17 @@
 import React from "react";
 import Link from "next/link";
-import { findCategories } from "@/lib/repositories/category";
-import { findSiteSettings } from "@/lib/repositories/siteSetting";
+import { getCachedCategories, getCachedSiteSettings } from "@/lib/cachedStorefront";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import { Store, ShieldCheck, Heart, Award, Sparkles, MapPin, Phone } from "lucide-react";
 
-export const revalidate = 120;
+export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
   const [categories, siteSettings] = await Promise.all([
-    findCategories({
-      where: { parentId: null, isActive: true },
-      orderBy: { displayOrder: "asc" },
-      includeChildren: true,
-    }),
-    findSiteSettings({
-      key: { in: ["about_ceenai", "footer_settings", "announcement_bar"] },
-    }),
+    getCachedCategories(),
+    getCachedSiteSettings(["about_ceenai", "footer_settings", "announcement_bar"]),
   ]);
 
   const settingsMap: Record<string, any> = {};

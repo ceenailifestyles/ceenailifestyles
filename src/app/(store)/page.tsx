@@ -1,9 +1,14 @@
 import React from "react";
-import { findBanners } from "@/lib/repositories/banner";
-import { findCategories } from "@/lib/repositories/category";
-import { findProducts } from "@/lib/repositories/product";
-import { findCollections } from "@/lib/repositories/collection";
-import { findSiteSettings } from "@/lib/repositories/siteSetting";
+import {
+  getCachedBanners,
+  getCachedCategories,
+  getCachedFeaturedProducts,
+  getCachedBestSellerProducts,
+  getCachedOfferProducts,
+  getCachedAllProducts,
+  getCachedCollections,
+  getCachedSiteSettings,
+} from "@/lib/cachedStorefront";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Header from "@/components/layout/Header";
 import HeroBanner from "@/components/store/HeroBanner";
@@ -15,10 +20,10 @@ import AllProducts from "@/components/store/AllProducts";
 import Newsletter from "@/components/store/Newsletter";
 import Footer from "@/components/layout/Footer";
 
-export const revalidate = 120;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Fetch all real MySQL data concurrently
+  // Fetch cached storefront data concurrently
   const [
     banners,
     categories,
@@ -29,50 +34,14 @@ export default async function HomePage() {
     collections,
     siteSettings,
   ] = await Promise.all([
-    findBanners({ isActive: true }, { displayOrder: "asc" }),
-    findCategories({
-      where: { parentId: null, isActive: true },
-      orderBy: { displayOrder: "asc" },
-      includeChildren: true,
-    }),
-    findProducts({
-      where: { isFeatured: true, isActive: true },
-      take: 10,
-      orderBy: { createdAt: "desc" },
-      includeCategory: true,
-      includeVariants: true,
-    }),
-    findProducts({
-      where: { isBestSeller: true, isActive: true },
-      take: 10,
-      orderBy: { createdAt: "desc" },
-      includeCategory: true,
-      includeVariants: true,
-    }),
-    findProducts({
-      where: { isOffer: true, isActive: true },
-      take: 10,
-      orderBy: { discount: "desc" },
-      includeCategory: true,
-      includeVariants: true,
-    }),
-    findProducts({
-      where: { isActive: true },
-      take: 50,
-      orderBy: { createdAt: "desc" },
-      includeCategory: true,
-      includeVariants: true,
-    }),
-    findCollections({
-      where: { isActive: true },
-      take: 2,
-      orderBy: { displayOrder: "asc" },
-    }),
-    findSiteSettings({
-      key: {
-        in: ["benefits", "announcement_bar", "footer_settings"],
-      },
-    }),
+    getCachedBanners(),
+    getCachedCategories(),
+    getCachedFeaturedProducts(),
+    getCachedBestSellerProducts(),
+    getCachedOfferProducts(),
+    getCachedAllProducts(),
+    getCachedCollections(),
+    getCachedSiteSettings(["benefits", "announcement_bar", "footer_settings"]),
   ]);
 
   const settingsMap: Record<string, any> = {};

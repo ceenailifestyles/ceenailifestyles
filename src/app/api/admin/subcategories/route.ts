@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { findCategories, findCategoryById, findCategoryBySlug, createCategory } from "@/lib/repositories/category";
 import { getAdminSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
@@ -78,6 +78,8 @@ export async function POST(req: Request) {
 
     revalidatePath("/");
     revalidatePath("/products");
+    revalidateTag("categories", "max");
+    revalidateTag("storefront", "max");
 
     return NextResponse.json({ subcategory }, { status: 201 });
   } catch (error) {
